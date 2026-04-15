@@ -226,12 +226,58 @@ document.addEventListener('DOMContentLoaded', () => {
             filtered.forEach(todo => renderTodoItem(todo));
         }
         updateCount();
+        
+        // Habilitar Drag & Drop SOLO si estamos viendo "Todas" y sin búsquedas
+        if (window.todoSortable) {
+            const canSort = activeFilter === 'all' && !searchQuery;
+            window.todoSortable.option("disabled", !canSort);
+        }
     }
 
     // ─────────────────────────────────────────────
     // INICIALIZACIÓN: Carga tareas desde la API
     // ─────────────────────────────────────────────
     loadTasks();
+    
+    // ─────────────────────────────────────────────
+    // DRAG AND DROP (SortableJS)
+    // ─────────────────────────────────────────────
+    window.todoSortable = new Sortable(todoList, {
+        animation: 200,
+        handle: '.drag-handle',
+        ghostClass: 'sortable-ghost',
+        dragClass: 'sortable-drag',
+        onEnd: async function (evt) {
+            if (evt.oldIndex === evt.newIndex) return;
+            
+            // Reordenar localmente el array
+            const movedItem = allTasks.splice(evt.oldIndex, 1)[0];
+            allTasks.splice(evt.newIndex, 0, movedItem);
+            
+            showToast('Guardando nuevo orden...', 'info');
+            
+            // Preparar el payload para la API (mandamos los IDs en su nueva posición)
+            const tasksToUpdate = allTasks.map((t, index) => ({
+                id: t.id,
+                order_index: index
+            }));
+            
+            try {
+                const res = await fetch(`${API_URL}/tasks/reorder`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tasks: tasksToUpdate })
+                });
+                
+                if (!res.ok) throw new Error('Error al guardar el orden');
+                showToast('¡Orden guardado en la nube! ↕️', 'success');
+            } catch (err) {
+                console.error('Error reordenando:', err);
+                showToast('Error de conexión al guardar el orden', 'error');
+                await loadTasks(); // Revertir si falla
+            }
+        }
+    });
 
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -386,6 +432,7 @@ document.addEventListener('DOMContentLoaded', () => {
         li.dataset.id = todo.id;
 
         li.innerHTML = `
+            <div class="drag-handle" title="Arrastrar para mover">⋮⋮</div>
             <div class="checkbox" role="button" aria-label="Marcar como completado" tabindex="0"></div>
             <span class="todo-text">${escapeHTML(todo.text)}</span>
             <button class="delete-btn" aria-label="Eliminar tarea">
