@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infinity To-Do</title>
+    <meta name="description" content="Un gestor de tareas premium con diseño moderno.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <main class="app-container">
+        <header class="app-header">
+            <h1 class="glass-title">Mis Tareas</h1>
+            <p class="subtitle">Organiza tu día con estilo</p>
+            <div class="theme-switcher" role="group" aria-label="Seleccionar tema">
+                <button id="theme-cosmos" class="theme-btn active" title="Cosmos (Default)">🌌</button>
+                <button id="theme-hacker" class="theme-btn" title="Terminal Hacker">💻</button>
+                <button id="theme-office" class="theme-btn" title="Office Paper">📋</button>
+            </div>
+        </header>
+
+        <section class="add-section glass-panel">
+            <form id="todo-form" class="todo-form">
+                <input type="text" id="todo-input" placeholder="¿Qué necesitas hacer hoy?" autocomplete="off" required>
+                <button type="submit" id="add-btn" class="glow-btn" aria-label="Añadir tarea">
+                    <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                </button>
+            </form>
+        </section>
+
+        <section class="list-section">
+            <div class="list-header">
+                <div class="header-title-group">
+                    <h2>Mis Tareas</h2>
+                    <span id="task-count" class="badge">0</span>
+                </div>
+                <input type="text" id="search-input" class="search-input" placeholder="🔍 Buscar..." autocomplete="off">
+            </div>
+
+            <div class="filter-bar">
+                <button id="filter-all" class="filter-btn active">
+                    Todas <span id="badge-all" class="filter-badge">0</span>
+                </button>
+                <button id="filter-pending" class="filter-btn">
+                    Pendientes <span id="badge-pending" class="filter-badge">0</span>
+                </button>
+                <button id="filter-done" class="filter-btn">
+                    Completadas <span id="badge-done" class="filter-badge">0</span>
+                </button>
+            </div>
+
+            <div class="progress-container" id="progress-container">
+                <div class="progress-header">
+                    <span id="progress-label">0 de 0 completadas</span>
+                    <span id="progress-pct">0%</span>
+                </div>
+                <div class="progress-track">
+                    <div class="progress-bar" id="progress-bar"></div>
+                </div>
+            </div>
+
+            <div class="list-controls" id="list-controls" style="display:none;">
+                <button id="toggle-all-btn" class="control-btn">☑️ Marcar todas</button>
+                <button id="clear-btn" class="control-btn danger-btn">🗑️ Limpiar completadas</button>
+            </div>
+
+            <ul id="todo-list" class="todo-list">
+                <!-- Tareas se inyectarán aquí mediante JS -->
+            </ul>
+        </section>
+    </main>
+
+    <div class="bg-shapes">
+        <div class="shape shape-1"></div>
+        <div class="shape shape-2"></div>
+        <div class="shape shape-3"></div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
