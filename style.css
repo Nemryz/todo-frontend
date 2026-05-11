@@ -564,6 +564,62 @@ body {
     box-shadow: 0 0 0 4px rgba(147, 51, 234, 0.35);
 }
 
+/* ── CURSORES POR TEMA ───────────────────── */
+body {
+    cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Ccircle cx='12' cy='12' r='2' fill='%23fff'/%3E%3Ccircle cx='12' cy='12' r='6' fill='none' stroke='%239333ea' stroke-width='1' opacity='.6'/%3E%3Cline x1='12' y1='1' x2='12' y2='8' stroke='%23fff' stroke-width='1.5' stroke-linecap='round'/%3E%3Cline x1='12' y1='16' x2='12' y2='23' stroke='%23fff' stroke-width='1.5' stroke-linecap='round'/%3E%3Cline x1='1' y1='12' x2='8' y2='12' stroke='%23fff' stroke-width='1.5' stroke-linecap='round'/%3E%3Cline x1='16' y1='12' x2='23' y2='12' stroke='%23fff' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E") 12 12, crosshair;
+}
+body a, body button, body [role="button"], body label, body .checkbox,
+body .delete-btn, body .theme-btn, body .filter-btn, body .glow-btn,
+body .control-btn, body .auth-btn, body #add-btn {
+    cursor: pointer;
+}
+body .drag-handle { cursor: grab; }
+body .drag-handle:active { cursor: grabbing; }
+body input, body textarea { cursor: text; }
+
+body.theme-hacker {
+    cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='20'%3E%3Crect x='1' y='1' width='10' height='18' fill='%2300ff41' opacity='.85' rx='1'/%3E%3C/svg%3E") 2 18, text;
+}
+body.theme-hacker a, body.theme-hacker button, body.theme-hacker [role="button"],
+body.theme-hacker .checkbox, body.theme-hacker .delete-btn, body.theme-hacker .theme-btn,
+body.theme-hacker .filter-btn, body.theme-hacker .glow-btn, body.theme-hacker .control-btn,
+body.theme-hacker .auth-btn, body.theme-hacker #add-btn {
+    cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='20'%3E%3Crect x='1' y='1' width='10' height='18' fill='%2300ff41' opacity='.85' rx='1'/%3E%3C/svg%3E") 2 18, pointer;
+}
+
+body.theme-office { cursor: default; }
+body.theme-office a, body.theme-office button, body.theme-office [role="button"],
+body.theme-office .checkbox, body.theme-office .delete-btn, body.theme-office .theme-btn,
+body.theme-office .filter-btn, body.theme-office .glow-btn, body.theme-office .control-btn,
+body.theme-office .auth-btn, body.theme-office #add-btn {
+    cursor: pointer;
+}
+
+/* ── INDICADOR DE ESTADO DEL BACKEND ────── */
+.backend-status {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #475569;
+    margin-left: 6px;
+    vertical-align: middle;
+    transition: background 0.4s ease, box-shadow 0.4s ease;
+}
+.backend-status.online {
+    background: var(--success);
+    box-shadow: 0 0 6px var(--success);
+    animation: pulse-dot 2.5s infinite;
+}
+.backend-status.offline {
+    background: var(--danger);
+    box-shadow: 0 0 6px var(--danger);
+}
+@keyframes pulse-dot {
+    0%, 100% { box-shadow: 0 0 4px var(--success); }
+    50%       { box-shadow: 0 0 10px var(--success), 0 0 20px rgba(16,185,129,0.3); }
+}
+
 /* ── TOAST NOTIFICATIONS ────────────────── */
 .toast-container {
     position: fixed;

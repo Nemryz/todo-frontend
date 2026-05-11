@@ -98,7 +98,20 @@ document.addEventListener('DOMContentLoaded', () => {
     function showApp() {
         authModal.style.display = 'none';
         appDiv.style.display    = 'flex';
+        checkBackendStatus();
         loadTasks();
+    }
+
+    async function checkBackendStatus() {
+        const dot = document.getElementById('backend-status');
+        try {
+            const res = await fetch(`${API_URL}/`, { signal: AbortSignal.timeout(6000) });
+            dot.className = 'backend-status ' + (res.ok ? 'online' : 'offline');
+            dot.title = res.ok ? 'Servidor en línea ✓' : 'Servidor con problemas';
+        } catch {
+            dot.className = 'backend-status offline';
+            dot.title = 'Servidor no disponible — puede estar iniciando (~30s)';
+        }
     }
 
     btnLogin.addEventListener('click', async () => {
@@ -256,11 +269,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // ─────────────────────────────────────────────
     // FILTROS
     // ─────────────────────────────────────────────
+    const savedFilter = localStorage.getItem('todo-filter') || 'all';
+    activeFilter = savedFilter;
     filterBtns.forEach(btn => {
+        btn.classList.toggle('active', btn.id === `filter-${savedFilter}`);
         btn.addEventListener('click', () => {
             filterBtns.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             activeFilter = btn.id.replace('filter-', '');
+            localStorage.setItem('todo-filter', activeFilter);
             applyFilter();
         });
     });
