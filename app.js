@@ -360,7 +360,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({ text })
             });
             if (!res.ok) throw new Error('Error al crear tarea');
-            await loadTasks();
+            const newTask = await res.json();
+            allTasks.unshift(newTask);
+            applyFilter();
             showToast(`Tarea añadida: "${text}"`, 'success');
         } catch (err) {
             console.error('Error creando tarea:', err);
@@ -419,7 +421,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await authFetch(`${API_URL}/tasks/${id}`, { method: 'DELETE' });
             if (!res.ok) throw new Error('Error al eliminar tarea');
             setTimeout(() => {
-                loadTasks();
+                allTasks = allTasks.filter(t => t.id !== id);
+                applyFilter();
                 showToast('Tarea eliminada', 'warning');
             }, 300);
         } catch (err) {
@@ -440,7 +443,7 @@ document.addEventListener('DOMContentLoaded', () => {
             element.querySelector('.todo-text').textContent = updated.text;
         } catch (err) {
             console.error('Error actualizando texto:', err);
-            await loadTasks();
+            showToast('Error al guardar el texto', 'error');
         }
     }
 
