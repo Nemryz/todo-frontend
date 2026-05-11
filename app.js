@@ -283,7 +283,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (filtered.length === 0) {
             todoList.innerHTML = `<li class="empty-msg">✨ No hay tareas aquí</li>`;
         } else {
-            filtered.forEach(todo => renderTodoItem(todo));
+            filtered.forEach(todo => todoList.appendChild(renderTodoItem(todo)));
         }
         updateCount();
 
@@ -363,7 +363,18 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!res.ok) throw new Error('Error al crear tarea');
             const newTask = await res.json();
             allTasks.unshift(newTask);
-            applyFilter();
+
+            const isVisible = activeFilter !== 'done' &&
+                (!searchQuery || newTask.text.toLowerCase().includes(searchQuery));
+
+            if (isVisible) {
+                const emptyMsg = todoList.querySelector('.empty-msg');
+                if (emptyMsg) emptyMsg.remove();
+                const li = renderTodoItem(newTask);
+                li.classList.add('todo-item--entering');
+                todoList.prepend(li);
+            }
+            updateCount();
         } catch (err) {
             console.error('Error creando tarea:', err);
             showToast('No se pudo guardar la tarea', 'error');
@@ -505,7 +516,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
-        todoList.appendChild(li);
+        return li;
     }
 
     function updateCount() {
