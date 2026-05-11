@@ -354,6 +354,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function addTodo(text) {
+        showToast(`Tarea añadida: "${text}"`, 'success');
         try {
             const res = await authFetch(`${API_URL}/tasks`, {
                 method: 'POST',
@@ -363,7 +364,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const newTask = await res.json();
             allTasks.unshift(newTask);
             applyFilter();
-            showToast(`Tarea añadida: "${text}"`, 'success');
         } catch (err) {
             console.error('Error creando tarea:', err);
             showToast('No se pudo guardar la tarea', 'error');
@@ -416,17 +416,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function deleteTodo(id, element) {
+        const backup = allTasks.find(t => t.id === id);
+        allTasks = allTasks.filter(t => t.id !== id);
         element.style.animation = 'fadeOut 0.3s ease forwards';
+        showToast('Tarea eliminada', 'warning');
+        setTimeout(() => applyFilter(), 300);
         try {
             const res = await authFetch(`${API_URL}/tasks/${id}`, { method: 'DELETE' });
             if (!res.ok) throw new Error('Error al eliminar tarea');
-            setTimeout(() => {
-                allTasks = allTasks.filter(t => t.id !== id);
-                applyFilter();
-                showToast('Tarea eliminada', 'warning');
-            }, 300);
         } catch (err) {
-            element.style.animation = '';
+            if (backup) { allTasks.push(backup); applyFilter(); }
             console.error('Error eliminando tarea:', err);
             showToast('No se pudo eliminar', 'error');
         }
