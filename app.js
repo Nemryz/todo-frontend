@@ -1,6 +1,11 @@
-const API_URL = 'https://todo-api-backend-t5pj.onrender.com';
+const API_URL        = 'https://todo-api-backend-t5pj.onrender.com';
+const SUPABASE_URL   = 'https://khyoesumffyfkwsrxkzm.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_FzQ38GSuCVGWIc3K7eTHDA_aub4_Yqi'; // anon key (pública)
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 document.addEventListener('DOMContentLoaded', () => {
+    // ─── DOM refs ───────────────────────────────────────────
     const form          = document.getElementById('todo-form');
     const input         = document.getElementById('todo-input');
     const todoList      = document.getElementById('todo-list');
@@ -17,11 +22,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const badgePending  = document.getElementById('badge-pending');
     const badgeDone     = document.getElementById('badge-done');
 
-    let allTasks     = [];
-    let activeFilter = 'all';
-    let searchQuery  = '';
-    let confirmTimer = null;
-    let completedStreak = 0; // Para el mensaje "fire"
+    // ─── Auth DOM refs ───────────────────────────────────────
+    const authModal    = document.getElementById('auth-modal');
+    const authEmail    = document.getElementById('auth-email');
+    const authPassword = document.getElementById('auth-password');
+    const authError    = document.getElementById('auth-error');
+    const btnLogin     = document.getElementById('btn-login');
+    const btnRegister  = document.getElementById('btn-register');
+    const btnLogout    = document.getElementById('btn-logout');
+    const appDiv       = document.getElementById('app');
+
+    // ─── Estado ─────────────────────────────────────────────
+    let allTasks        = [];
+    let activeFilter    = 'all';
+    let searchQuery     = '';
+    let confirmTimer    = null;
+    let completedStreak = 0;
+    let currentSession  = null;
 
     // ─────────────────────────────────────────────
     // TOAST NOTIFICATIONS
@@ -33,7 +50,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function showToast(message, type = 'info') {
         const toast = document.createElement('div');
         toast.className = `toast ${type}`;
-        
+
         const icons = {
             success: '✅',
             error: '🚨',
@@ -42,20 +59,85 @@ document.addEventListener('DOMContentLoaded', () => {
             magic: '✨',
             fire: '🔥'
         };
-        const icon = icons[type] || icons.info;
-
-        toast.innerHTML = `<span>${icon}</span> <span>${message}</span>`;
+        toast.innerHTML = `<span>${icons[type] || icons.info}</span> <span>${message}</span>`;
         toastContainer.appendChild(toast);
 
-        // Animar entrada suavemente
         requestAnimationFrame(() => toast.classList.add('show'));
-
-        // Remover después de 3s
         setTimeout(() => {
             toast.classList.remove('show');
             toast.classList.add('hide');
             toast.addEventListener('transitionend', () => toast.remove());
         }, 3000);
+    }
+
+    // ─────────────────────────────────────────────
+    // AUTENTICACIÓN
+    // ─────────────────────────────────────────────
+    async function initAuth() {
+        const { data: { session } } = await sb.auth.getSession();
+        if (session) {
+            currentSession = session;
+            showApp();
+        } else {
+            showAuthModal();
+        }
+
+        sb.auth.onAuthStateChange((_event, session) => {
+            currentSession = session;
+            if (session) showApp();
+            else showAuthModal();
+        });
+    }
+
+    function showAuthModal() {
+        authModal.style.display = 'flex';
+        appDiv.style.display    = 'none';
+        allTasks = [];
+    }
+
+    function showApp() {
+        authModal.style.display = 'none';
+        appDiv.style.display    = 'block';
+        loadTasks();
+    }
+
+    btnLogin.addEventListener('click', async () => {
+        const email    = authEmail.value.trim();
+        const password = authPassword.value;
+        if (!email || !password) return;
+        authError.textContent = '';
+        btnLogin.disabled = true;
+        const { error } = await sb.auth.signInWithPassword({ email, password });
+        btnLogin.disabled = false;
+        if (error) authError.textContent = error.message;
+    });
+
+    btnRegister.addEventListener('click', async () => {
+        const email    = authEmail.value.trim();
+        const password = authPassword.value;
+        if (!email || !password) return;
+        authError.textContent = '';
+        btnRegister.disabled = true;
+        const { error } = await sb.auth.signUp({ email, password });
+        btnRegister.disabled = false;
+        if (error) authError.textContent = error.message;
+        else authError.style.color = 'var(--success)', authError.textContent = '¡Revisa tu correo para confirmar!';
+    });
+
+    btnLogout.addEventListener('click', async () => {
+        await sb.auth.signOut();
+        showToast('Sesión cerrada', 'info');
+    });
+
+    // ─────────────────────────────────────────────
+    // authFetch — reemplaza fetch() en todos los endpoints
+    // Añade automáticamente el token JWT en cada request
+    // ─────────────────────────────────────────────
+    async function authFetch(url, options = {}) {
+        if (!currentSession) throw new Error('No autenticado');
+        const headers = { 'Authorization': `Bearer ${currentSession.access_token}` };
+        if (options.body) headers['Content-Type'] = 'application/json';
+        return fetch(url, { ...options, headers: { ...headers, ...(options.headers || {}) } });
     }
 
     // ─────────────────────────────────────────────
@@ -69,42 +151,32 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     function applyTheme(theme) {
-        // Quitar todos los temas del body
         themes.forEach(t => document.body.classList.remove(`theme-${t}`));
-        // Aplicar el seleccionado (cosmos no necesita clase extra, es el default)
         if (theme !== 'cosmos') document.body.classList.add(`theme-${theme}`);
-        // Actualizar botón activo
         Object.values(themeBtns).forEach(btn => btn.classList.remove('active'));
         themeBtns[theme].classList.add('active');
-        // Persistir en localStorage
         localStorage.setItem('todo-theme', theme);
     }
 
-    // Cargar tema guardado (o cosmos por defecto)
     const savedTheme = localStorage.getItem('todo-theme') || 'cosmos';
     applyTheme(savedTheme);
 
-    // Eventos de los botones de tema
     Object.entries(themeBtns).forEach(([theme, btn]) => {
         btn.addEventListener('click', () => applyTheme(theme));
     });
-
 
     // ─────────────────────────────────────────────
     // BOTÓN LIMPIAR COMPLETADAS (2 clics para confirmar)
     // ─────────────────────────────────────────────
     clearBtn.addEventListener('click', async () => {
         if (!clearBtn.classList.contains('confirming')) {
-            // Primer clic: entra en modo confirmación
             clearBtn.classList.add('confirming');
             clearBtn.textContent = '⚠️ ¿Confirmar? (clic de nuevo)';
-            // Si en 3 segundos no confirma, cancela solo
             confirmTimer = setTimeout(() => {
                 clearBtn.classList.remove('confirming');
                 clearBtn.textContent = '🗑️ Limpiar completadas';
             }, 3000);
         } else {
-            // Segundo clic: ejecutar eliminación
             clearTimeout(confirmTimer);
             clearBtn.classList.remove('confirming');
             clearBtn.textContent = '🗑️ Limpiar completadas';
@@ -116,9 +188,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const completed = allTasks.filter(t => t.completed);
         const count = completed.length;
         await Promise.all(
-            completed.map(t =>
-                fetch(`${API_URL}/tasks/${t.id}`, { method: 'DELETE' })
-            )
+            completed.map(t => authFetch(`${API_URL}/tasks/${t.id}`, { method: 'DELETE' }))
         );
         await loadTasks();
         showToast(`¡Limpieza completa! ${count} tareas borradas 🧹`, 'magic');
@@ -129,29 +199,22 @@ document.addEventListener('DOMContentLoaded', () => {
     // ─────────────────────────────────────────────
     toggleAllBtn.addEventListener('click', async () => {
         if (allTasks.length === 0) return;
-        
-        // Si hay alguna pendiente, marcamos todas como completadas
-        // Si todas están completadas, las desmarcamos todas
-        const allCompleted = allTasks.every(t => t.completed);
-        const newState = !allCompleted;
-        
-        const tasksToUpdate = allTasks.filter(t => t.completed !== newState);
-        const count = tasksToUpdate.length;
-        
-        if (count === 0) return;
 
-        // Optimistic update
+        const allCompleted  = allTasks.every(t => t.completed);
+        const newState      = !allCompleted;
+        const tasksToUpdate = allTasks.filter(t => t.completed !== newState);
+
+        if (tasksToUpdate.length === 0) return;
+
         tasksToUpdate.forEach(t => t.completed = newState);
         applyFilter();
-        
         toggleAllBtn.disabled = true;
-        
+
         try {
             await Promise.all(
                 tasksToUpdate.map(t =>
-                    fetch(`${API_URL}/tasks/${t.id}`, {
+                    authFetch(`${API_URL}/tasks/${t.id}`, {
                         method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ completed: newState })
                     })
                 )
@@ -160,7 +223,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) {
             console.error('Error al hacer toggle all:', err);
             showToast('Error de conexión', 'error');
-            await loadTasks(); // Revert
+            await loadTasks();
         } finally {
             toggleAllBtn.disabled = false;
         }
@@ -170,7 +233,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // ATAJOS DE TECLADO
     // ─────────────────────────────────────────────
     document.addEventListener('keydown', (e) => {
-        // Esc: limpiar inputs y perder foco
         if (e.key === 'Escape') {
             if (document.activeElement === input || document.activeElement === searchInput) {
                 document.activeElement.blur();
@@ -181,12 +243,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 applyFilter();
             }
         }
-        // '/': Enfocar búsqueda rápidamente
         if (e.key === '/' && document.activeElement !== input && document.activeElement !== searchInput) {
             e.preventDefault();
             searchInput.focus();
         }
-        // 'n': Enfocar nueva tarea
         if (e.key === 'n' && document.activeElement !== input && document.activeElement !== searchInput && document.activeElement.tagName !== 'INPUT') {
             e.preventDefault();
             input.focus();
@@ -200,7 +260,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.addEventListener('click', () => {
             filterBtns.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-            activeFilter = btn.id.replace('filter-', ''); // 'all', 'pending', 'done'
+            activeFilter = btn.id.replace('filter-', '');
             applyFilter();
         });
     });
@@ -214,7 +274,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let filtered = allTasks;
         if (activeFilter === 'pending') filtered = allTasks.filter(t => !t.completed);
         if (activeFilter === 'done')    filtered = allTasks.filter(t => t.completed);
-        
+
         if (searchQuery) {
             filtered = filtered.filter(t => t.text.toLowerCase().includes(searchQuery));
         }
@@ -226,19 +286,13 @@ document.addEventListener('DOMContentLoaded', () => {
             filtered.forEach(todo => renderTodoItem(todo));
         }
         updateCount();
-        
-        // Habilitar Drag & Drop SOLO si estamos viendo "Todas" y sin búsquedas
+
         if (window.todoSortable) {
             const canSort = activeFilter === 'all' && !searchQuery;
-            window.todoSortable.option("disabled", !canSort);
+            window.todoSortable.option('disabled', !canSort);
         }
     }
 
-    // ─────────────────────────────────────────────
-    // INICIALIZACIÓN: Carga tareas desde la API
-    // ─────────────────────────────────────────────
-    loadTasks();
-    
     // ─────────────────────────────────────────────
     // DRAG AND DROP (SortableJS)
     // ─────────────────────────────────────────────
@@ -249,32 +303,25 @@ document.addEventListener('DOMContentLoaded', () => {
         dragClass: 'sortable-drag',
         onEnd: async function (evt) {
             if (evt.oldIndex === evt.newIndex) return;
-            
-            // Reordenar localmente el array
+
             const movedItem = allTasks.splice(evt.oldIndex, 1)[0];
             allTasks.splice(evt.newIndex, 0, movedItem);
-            
+
             showToast('Guardando nuevo orden...', 'info');
-            
-            // Preparar el payload para la API (mandamos los IDs en su nueva posición)
-            const tasksToUpdate = allTasks.map((t, index) => ({
-                id: t.id,
-                order_index: index
-            }));
-            
+
+            const tasksToUpdate = allTasks.map((t, index) => ({ id: t.id, order_index: index }));
+
             try {
-                const res = await fetch(`${API_URL}/tasks/reorder`, {
+                const res = await authFetch(`${API_URL}/tasks/reorder`, {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ tasks: tasksToUpdate })
                 });
-                
                 if (!res.ok) throw new Error('Error al guardar el orden');
                 showToast('¡Orden guardado en la nube! ↕️', 'success');
             } catch (err) {
                 console.error('Error reordenando:', err);
                 showToast('Error de conexión al guardar el orden', 'error');
-                await loadTasks(); // Revertir si falla
+                await loadTasks();
             }
         }
     });
@@ -289,32 +336,30 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // ─────────────────────────────────────────────
-    // FUNCIONES DE LA API (fetch)
+    // FUNCIONES DE LA API
     // ─────────────────────────────────────────────
 
     async function loadTasks() {
         try {
             showLoading();
-            const res = await fetch(`${API_URL}/tasks`);
+            const res = await authFetch(`${API_URL}/tasks`);
             if (!res.ok) throw new Error('Error al cargar tareas');
             allTasks = await res.json();
             applyFilter();
         } catch (err) {
             console.error('Error cargando tareas:', err);
-            showToast('No se pudo conectar al servidor. ¿Está corriendo la API?', 'error');
+            showToast('No se pudo conectar al servidor', 'error');
             todoList.innerHTML = `<li class="empty-msg" style="color:var(--danger)">🚨 Error de conexión</li>`;
         }
     }
 
     async function addTodo(text) {
         try {
-            const res = await fetch(`${API_URL}/tasks`, {
+            const res = await authFetch(`${API_URL}/tasks`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ text })
             });
             if (!res.ok) throw new Error('Error al crear tarea');
-            // Recargamos la lista completa desde la BD para estar sincronizados
             await loadTasks();
             showToast(`Tarea añadida: "${text}"`, 'success');
         } catch (err) {
@@ -324,53 +369,44 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function toggleTodo(id, element) {
-        // Bloquear si ya hay una llamada en vuelo para esta tarea
         if (element.dataset.saving === 'true') return;
         element.dataset.saving = 'true';
         element.style.opacity = '0.6';
         element.style.pointerEvents = 'none';
 
-        // Estado DESEADO antes de enviar (opuesto al actual)
         const isNowCompleted = !element.classList.contains('completed');
-
-        // Actualizar en memoria y UI inmediatamente (optimistic)
         const taskIndex = allTasks.findIndex(t => t.id === id);
         if (taskIndex !== -1) allTasks[taskIndex].completed = isNowCompleted;
         element.classList.toggle('completed');
         updateCount();
 
         try {
-            const res = await fetch(`${API_URL}/tasks/${id}`, {
+            const res = await authFetch(`${API_URL}/tasks/${id}`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ completed: isNowCompleted })
             });
             if (!res.ok) throw new Error('Error al actualizar tarea');
 
-            // Custom toasts interactivas
             if (isNowCompleted) {
                 completedStreak++;
                 if (completedStreak === 3) {
                     showToast('¡Estás on fire! 3 seguidas 🔥', 'fire');
-                    completedStreak = 0; // reset racha
+                    completedStreak = 0;
                 } else if (allTasks.every(t => t.completed) && allTasks.length > 0) {
                     showToast('¡Día libre! Todas completadas 🎉', 'magic');
                 } else {
                     showToast('¡Una menos!', 'success');
                 }
             } else {
-                completedStreak = 0; // rompe la racha
+                completedStreak = 0;
             }
-
         } catch (err) {
-            // Revertir si la API falla
             if (taskIndex !== -1) allTasks[taskIndex].completed = !isNowCompleted;
             element.classList.toggle('completed');
             updateCount();
             console.error('Error actualizando tarea:', err);
             showToast('Error de conexión', 'error');
         } finally {
-            // Siempre desbloquear al terminar
             element.dataset.saving = 'false';
             element.style.opacity = '';
             element.style.pointerEvents = '';
@@ -378,21 +414,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function deleteTodo(id, element) {
-        // Animación de salida
         element.style.animation = 'fadeOut 0.3s ease forwards';
-
         try {
-            const res = await fetch(`${API_URL}/tasks/${id}`, {
-                method: 'DELETE'
-            });
+            const res = await authFetch(`${API_URL}/tasks/${id}`, { method: 'DELETE' });
             if (!res.ok) throw new Error('Error al eliminar tarea');
-            // Esperamos la animación y luego recargamos
             setTimeout(() => {
                 loadTasks();
                 showToast('Tarea eliminada', 'warning');
             }, 300);
         } catch (err) {
-            // Si falla, revertimos la animación
             element.style.animation = '';
             console.error('Error eliminando tarea:', err);
             showToast('No se pudo eliminar', 'error');
@@ -401,30 +431,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function updateTaskText(id, newText, element) {
         try {
-            const res = await fetch(`${API_URL}/tasks/${id}`, {
+            const res = await authFetch(`${API_URL}/tasks/${id}`, {
                 method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ text: newText })
             });
             if (!res.ok) throw new Error('Error al actualizar tarea');
             const updated = await res.json();
-            // Actualiza solo el span sin recargar toda la lista
             element.querySelector('.todo-text').textContent = updated.text;
         } catch (err) {
             console.error('Error actualizando texto:', err);
-            await loadTasks(); // fallback: recarga completa
+            await loadTasks();
         }
     }
 
     // ─────────────────────────────────────────────
-    // FUNCIONES DE RENDERIZADO
+    // RENDERIZADO
     // ─────────────────────────────────────────────
-
-    function renderTodos(tasks) {
-        todoList.innerHTML = '';
-        tasks.forEach(todo => renderTodoItem(todo));
-        updateCount(tasks);
-    }
 
     function renderTodoItem(todo) {
         const li = document.createElement('li');
@@ -445,14 +467,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const checkbox = li.querySelector('.checkbox');
         const deleteBtn = li.querySelector('.delete-btn');
-        const textSpan = li.querySelector('.todo-text');
+        const textSpan  = li.querySelector('.todo-text');
 
         checkbox.addEventListener('click', () => toggleTodo(todo.id, li));
         deleteBtn.addEventListener('click', () => deleteTodo(todo.id, li));
 
-        // Doble clic: convierte el span en un input editable
         textSpan.addEventListener('dblclick', () => {
-            if (li.classList.contains('completed')) return; // no editar si está completada
+            if (li.classList.contains('completed')) return;
 
             const originalText = textSpan.textContent;
             const editInput = document.createElement('input');
@@ -466,23 +487,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const saveEdit = async () => {
                 const newText = editInput.value.trim();
-                // Restauramos el span siempre
                 editInput.replaceWith(textSpan);
                 if (newText && newText !== originalText) {
-                    textSpan.textContent = newText; // optimistic update
+                    textSpan.textContent = newText;
                     await updateTaskText(todo.id, newText, li);
                 } else {
-                    textSpan.textContent = originalText; // revertir si está vacío
+                    textSpan.textContent = originalText;
                 }
             };
 
             editInput.addEventListener('blur', saveEdit);
             editInput.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') editInput.blur();
-                if (e.key === 'Escape') {
-                    editInput.value = originalText; // cancelar cambios
-                    editInput.blur();
-                }
+                if (e.key === 'Escape') { editInput.value = originalText; editInput.blur(); }
             });
         });
 
@@ -495,59 +512,41 @@ document.addEventListener('DOMContentLoaded', () => {
         const pending = total - done;
         const pct     = total > 0 ? Math.round((done / total) * 100) : 0;
 
-        // Badge pendientes original (arriba)
         taskCount.textContent = pending;
-
-        // Actualización de los badges de filtro con animación visual
         animateBadgeUpdate(badgeAll, total);
         animateBadgeUpdate(badgePending, pending);
         animateBadgeUpdate(badgeDone, done);
 
-        // Si hay más de 5 pendientes, el badge "se calienta" (ámbar a naranja)
-        if (pending > 5) {
-            badgePending.classList.add('urgent');
-        } else {
-            badgePending.classList.remove('urgent');
-        }
+        if (pending > 5) badgePending.classList.add('urgent');
+        else badgePending.classList.remove('urgent');
 
-        // Título dinámico en la pestaña del navegador (Bonus)
         document.title = pending > 0 ? `(${pending}) Infinity To-Do` : 'Infinity To-Do';
 
-        // Barra de progreso
         progressBar.style.width   = `${pct}%`;
         progressLabel.textContent = `${done} de ${total} completadas`;
         progressPct.textContent   = `${pct}%`;
 
-        // Color del porcentaje según avance
         if (pct === 100)     progressPct.style.color = 'var(--success)';
         else if (pct >= 50)  progressPct.style.color = 'var(--accent)';
         else                 progressPct.style.color = 'var(--text-muted)';
 
-        // Mostrar controles solo si hay tareas
         listControls.style.display = total > 0 ? 'flex' : 'none';
-        
-        // Estado del botón "Toggle All"
-        if (total > 0 && done === total) {
-            toggleAllBtn.innerHTML = '🟩 Desmarcar todas';
-        } else {
-            toggleAllBtn.innerHTML = '☑️ Marcar todas';
-        }
+        toggleAllBtn.innerHTML = (total > 0 && done === total)
+            ? '🟩 Desmarcar todas'
+            : '☑️ Marcar todas';
     }
 
     function animateBadgeUpdate(element, newValue) {
         if (!element) return;
-        
         const currentValue = parseInt(element.textContent) || 0;
         element.textContent = newValue;
 
-        // Si es 0 se pone tenue, si no, opacidad normal
         if (newValue === 0) element.classList.add('zero');
         else element.classList.remove('zero');
 
-        // Solo animar 'pop' si el número realmente cambió
         if (currentValue !== newValue) {
             element.classList.remove('pop');
-            void element.offsetWidth; // Force reflow para reiniciar la animación
+            void element.offsetWidth;
             element.classList.add('pop');
         }
     }
@@ -560,24 +559,12 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
     }
 
-    function showError(msg) {
-        todoList.innerHTML = `
-            <li style="text-align:center; color: var(--danger); padding: 2rem; font-size: 0.9rem;">
-                ⚠️ ${msg}
-            </li>
-        `;
+    function escapeHTML(str) {
+        return str.replace(/[&<>'"]/g, tag => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+        }[tag] || tag));
     }
 
-    // Prevención de XSS
-    function escapeHTML(str) {
-        return str.replace(/[&<>'"]/g,
-            tag => ({
-                '&': '&amp;',
-                '<': '&lt;',
-                '>': '&gt;',
-                "'": '&#39;',
-                '"': '&quot;'
-            }[tag] || tag)
-        );
-    }
+    // ─── Arrancar ───────────────────────────────
+    initAuth();
 });
