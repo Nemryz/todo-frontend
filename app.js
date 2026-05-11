@@ -97,7 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function showApp() {
         authModal.style.display = 'none';
-        appDiv.style.display    = 'block';
+        appDiv.style.display    = 'flex';
         loadTasks();
     }
 

@@ -870,6 +870,15 @@ body.theme-office .theme-btn.active {
     box-shadow: 0 2px 10px rgba(37, 99, 235, 0.35);
 }
 
+/* ─── APP WRAPPER ───────────────────────── */
+#app {
+    width: 100%;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
 /* ─── MODAL DE AUTENTICACIÓN ─────────────── */
 .auth-modal {
     position: fixed;
