@@ -9,6 +9,8 @@
     --accent: #3b82f6;
     --success: #10b981;
     --danger: #ef4444;
+    --font-family: 'Outfit', sans-serif;
+    --font-size-base: 15px;
 }
 
 * {
@@ -18,7 +20,8 @@
 }
 
 body {
-    font-family: 'Outfit', sans-serif;
+    font-family: var(--font-family, 'Outfit', sans-serif);
+    font-size: var(--font-size-base, 15px);
     background-color: var(--bg-color);
     color: var(--text-main);
     min-height: 100vh;
@@ -1783,3 +1786,388 @@ body.theme-contrast .command-item:hover,
 body.theme-contrast .command-item.selected {
     background: #ffff0020;
 }
+
+/* ══════════════════════════════════════════════════
+   VISTA GRID (G)
+══════════════════════════════════════════════════ */
+
+.view-toggle-btn {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    color: var(--text-muted);
+    font-size: 1rem;
+    width: 34px;
+    height: 34px;
+    border-radius: 0.6rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+.view-toggle-btn:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+body.view-grid .todo-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 0.75rem;
+}
+
+body.view-grid .todo-item {
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 0.75rem;
+}
+
+body.view-grid .todo-item:hover {
+    transform: translateY(-3px);
+}
+
+body.view-grid .todo-top-row {
+    flex-wrap: nowrap;
+}
+
+body.view-grid .drag-handle {
+    display: none;
+}
+
+body.view-grid .task-actions {
+    flex-direction: row;
+    justify-content: flex-end;
+}
+
+/* ══════════════════════════════════════════════════
+   TIPOGRAFÍA — MODAL
+══════════════════════════════════════════════════ */
+
+.typography-section {
+    margin-bottom: 1.25rem;
+}
+.typography-section:last-child {
+    margin-bottom: 0;
+}
+
+.typography-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 0.6rem;
+}
+
+.typography-options {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+#size-options {
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+
+.typo-btn {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 0.6rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.88rem;
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    transition: all 0.2s;
+}
+.typo-btn:hover {
+    border-color: var(--primary);
+    color: var(--text-main);
+}
+.typo-btn.active {
+    border-color: var(--primary);
+    background: rgba(147, 51, 234, 0.1);
+    color: var(--text-main);
+    font-weight: 600;
+}
+
+.typo-preview {
+    font-size: 1.4rem;
+    line-height: 1;
+    width: 28px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.typo-size-hint {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    margin-left: auto;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+/* ══════════════════════════════════════════════════
+   POMODORO — BARRA FLOTANTE
+══════════════════════════════════════════════════ */
+
+.pomodoro-bar {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-radius: 999px;
+    padding: 0.5rem 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    z-index: 9000;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+    animation: slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    white-space: nowrap;
+    max-width: calc(100vw - 2rem);
+}
+
+@keyframes slideUp {
+    from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+.pomodoro-bar-icon {
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
+
+.pomodoro-task-label {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pomodoro-time {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--text-main);
+    min-width: 3.5ch;
+    letter-spacing: 0.04em;
+}
+
+.pomodoro-stop-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.9rem;
+    padding: 0.2rem 0.4rem;
+    border-radius: 50%;
+    transition: color 0.2s, background 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.pomodoro-stop-btn:hover {
+    color: var(--danger);
+    background: rgba(239, 68, 68, 0.12);
+}
+
+/* Botón pomodoro dentro de cada tarea */
+.pomodoro-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-muted);
+    padding: 0.25rem;
+    border-radius: 0.4rem;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.8rem;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+.pomodoro-btn:hover {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.08);
+}
+.pomodoro-btn.running {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.1);
+    animation: pulsePom 1.5s infinite alternate;
+}
+@keyframes pulsePom {
+    from { opacity: 1; }
+    to   { opacity: 0.6; }
+}
+
+.pomodoro-count {
+    font-size: 0.68rem;
+    font-family: 'JetBrains Mono', monospace;
+    background: rgba(239, 68, 68, 0.12);
+    color: #ef4444;
+    border-radius: 999px;
+    padding: 0 0.35rem;
+    min-width: 1.2rem;
+    text-align: center;
+}
+
+/* Adaptaciones de la barra por tema */
+body.theme-hacker .pomodoro-bar {
+    border-color: rgba(0, 255, 65, 0.3);
+    box-shadow: 0 0 20px rgba(0, 255, 65, 0.1);
+}
+body.theme-hacker .pomodoro-time { color: #00ff41; }
+
+body.theme-office .pomodoro-bar {
+    background: #fff;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+}
+
+body.theme-contrast .pomodoro-bar {
+    background: #111;
+    border: 2px solid #fff;
+    box-shadow: none;
+}
+body.theme-contrast .pomodoro-time { color: #ffff00; }
+
+/* ══════════════════════════════════════════════════
+   ESTADÍSTICAS — PANEL
+══════════════════════════════════════════════════ */
+
+.stats-panel {
+    margin-bottom: 1.25rem;
+    animation: fadeIn 0.3s ease;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.6rem;
+}
+
+.stat-card {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 0.9rem;
+    padding: 0.85rem 0.75rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3rem;
+    text-align: center;
+}
+
+.stat-value {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--primary);
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+}
+
+.stat-label {
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+body.theme-hacker .stat-card {
+    border-color: rgba(0, 255, 65, 0.15);
+}
+body.theme-hacker .stat-value { color: #00ff41; }
+
+body.theme-contrast .stat-card {
+    background: #111;
+    border: 1px solid #444;
+}
+body.theme-contrast .stat-value { color: #ffff00; }
+
+/* ══════════════════════════════════════════════════
+   CURSORES — TEMAS RESTANTES (34)
+══════════════════════════════════════════════════ */
+
+/* Minimal — crosshair indigo fino */
+body.theme-minimal {
+    cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22'%3E%3Cline x1='11' y1='0' x2='11' y2='22' stroke='%236366f1' stroke-width='1.2'/%3E%3Cline x1='0' y1='11' x2='22' y2='11' stroke='%236366f1' stroke-width='1.2'/%3E%3Ccircle cx='11' cy='11' r='2' fill='%236366f1'/%3E%3C/svg%3E") 11 11, crosshair;
+}
+body.theme-minimal a, body.theme-minimal button, body.theme-minimal [role="button"],
+body.theme-minimal .checkbox, body.theme-minimal .delete-btn, body.theme-minimal .theme-btn,
+body.theme-minimal .filter-btn, body.theme-minimal .glow-btn, body.theme-minimal .control-btn,
+body.theme-minimal .auth-btn, body.theme-minimal #add-btn {
+    cursor: pointer;
+}
+body.theme-minimal .drag-handle { cursor: grab; }
+body.theme-minimal .drag-handle:active { cursor: grabbing; }
+body.theme-minimal input, body.theme-minimal textarea { cursor: text; }
+
+/* Nord — círculo suave #88c0d0 */
+body.theme-nord {
+    cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22'%3E%3Ccircle cx='11' cy='11' r='5' fill='none' stroke='%2388c0d0' stroke-width='1.5'/%3E%3Ccircle cx='11' cy='11' r='1.5' fill='%2388c0d0'/%3E%3Cline x1='11' y1='0' x2='11' y2='5' stroke='%2388c0d0' stroke-width='1'/%3E%3Cline x1='11' y1='17' x2='11' y2='22' stroke='%2388c0d0' stroke-width='1'/%3E%3Cline x1='0' y1='11' x2='5' y2='11' stroke='%2388c0d0' stroke-width='1'/%3E%3Cline x1='17' y1='11' x2='22' y2='11' stroke='%2388c0d0' stroke-width='1'/%3E%3C/svg%3E") 11 11, crosshair;
+}
+body.theme-nord a, body.theme-nord button, body.theme-nord [role="button"],
+body.theme-nord .checkbox, body.theme-nord .delete-btn, body.theme-nord .theme-btn,
+body.theme-nord .filter-btn, body.theme-nord .glow-btn, body.theme-nord .control-btn,
+body.theme-nord .auth-btn, body.theme-nord #add-btn {
+    cursor: pointer;
+}
+body.theme-nord .drag-handle { cursor: grab; }
+body.theme-nord .drag-handle:active { cursor: grabbing; }
+body.theme-nord input, body.theme-nord textarea { cursor: text; }
+
+/* Sakura — círculo rosa #f472b6 */
+body.theme-sakura {
+    cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22'%3E%3Ccircle cx='11' cy='11' r='5' fill='none' stroke='%23f472b6' stroke-width='1.5'/%3E%3Ccircle cx='11' cy='11' r='1.5' fill='%23f472b6'/%3E%3Cline x1='11' y1='0' x2='11' y2='5' stroke='%23f472b6' stroke-width='1'/%3E%3Cline x1='11' y1='17' x2='11' y2='22' stroke='%23f472b6' stroke-width='1'/%3E%3Cline x1='0' y1='11' x2='5' y2='11' stroke='%23f472b6' stroke-width='1'/%3E%3Cline x1='17' y1='11' x2='22' y2='11' stroke='%23f472b6' stroke-width='1'/%3E%3C/svg%3E") 11 11, crosshair;
+}
+body.theme-sakura a, body.theme-sakura button, body.theme-sakura [role="button"],
+body.theme-sakura .checkbox, body.theme-sakura .delete-btn, body.theme-sakura .theme-btn,
+body.theme-sakura .filter-btn, body.theme-sakura .glow-btn, body.theme-sakura .control-btn,
+body.theme-sakura .auth-btn, body.theme-sakura #add-btn {
+    cursor: pointer;
+}
+body.theme-sakura .drag-handle { cursor: grab; }
+body.theme-sakura .drag-handle:active { cursor: grabbing; }
+body.theme-sakura input, body.theme-sakura textarea { cursor: text; }
+
+/* Sunset — círculo naranja #f97316 */
+body.theme-sunset {
+    cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22'%3E%3Ccircle cx='11' cy='11' r='5' fill='none' stroke='%23f97316' stroke-width='1.5'/%3E%3Ccircle cx='11' cy='11' r='1.5' fill='%23f97316'/%3E%3Cline x1='11' y1='0' x2='11' y2='5' stroke='%23f97316' stroke-width='1'/%3E%3Cline x1='11' y1='17' x2='11' y2='22' stroke='%23f97316' stroke-width='1'/%3E%3Cline x1='0' y1='11' x2='5' y2='11' stroke='%23f97316' stroke-width='1'/%3E%3Cline x1='17' y1='11' x2='22' y2='11' stroke='%23f97316' stroke-width='1'/%3E%3C/svg%3E") 11 11, crosshair;
+}
+body.theme-sunset a, body.theme-sunset button, body.theme-sunset [role="button"],
+body.theme-sunset .checkbox, body.theme-sunset .delete-btn, body.theme-sunset .theme-btn,
+body.theme-sunset .filter-btn, body.theme-sunset .glow-btn, body.theme-sunset .control-btn,
+body.theme-sunset .auth-btn, body.theme-sunset #add-btn {
+    cursor: pointer;
+}
+body.theme-sunset .drag-handle { cursor: grab; }
+body.theme-sunset .drag-handle:active { cursor: grabbing; }
+body.theme-sunset input, body.theme-sunset textarea { cursor: text; }
+
+/* High Contrast — crosshair amarillo de alta visibilidad */
+body.theme-contrast {
+    cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22'%3E%3Cline x1='11' y1='0' x2='11' y2='22' stroke='%23ffff00' stroke-width='2'/%3E%3Cline x1='0' y1='11' x2='22' y2='11' stroke='%23ffff00' stroke-width='2'/%3E%3Ccircle cx='11' cy='11' r='2.5' fill='%23ffff00'/%3E%3C/svg%3E") 11 11, crosshair;
+}
+body.theme-contrast a, body.theme-contrast button, body.theme-contrast [role="button"],
+body.theme-contrast .checkbox, body.theme-contrast .delete-btn, body.theme-contrast .theme-btn,
+body.theme-contrast .filter-btn, body.theme-contrast .glow-btn, body.theme-contrast .control-btn,
+body.theme-contrast .auth-btn, body.theme-contrast #add-btn {
+    cursor: pointer;
+}
+body.theme-contrast .drag-handle { cursor: grab; }
+body.theme-contrast .drag-handle:active { cursor: grabbing; }
+body.theme-contrast input, body.theme-contrast textarea { cursor: text; }

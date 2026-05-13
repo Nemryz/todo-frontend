@@ -7,7 +7,7 @@
     <meta name="description" content="Un gestor de tareas premium con diseño moderno.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@400;600&family=Lora:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -40,6 +40,7 @@
                 <li><kbd>N</kbd> <span>Nueva tarea</span></li>
                 <li><kbd>F</kbd> <span>Modo enfoque</span></li>
                 <li><kbd>T</kbd> <span>Cambiar tema</span></li>
+                <li><kbd>G</kbd> <span>Vista grid / lista</span></li>
                 <li><kbd>E</kbd> <span>Exportar tareas</span></li>
                 <li><kbd>1</kbd> <span>Filtro: Todas</span></li>
                 <li><kbd>2</kbd> <span>Filtro: Pendientes</span></li>
@@ -47,7 +48,7 @@
                 <li><kbd>?</kbd> <span>Mostrar este panel</span></li>
                 <li><kbd>Ctrl K</kbd> <span>Paleta de comandos</span></li>
                 <li><kbd>Ctrl Z</kbd> <span>Deshacer eliminación</span></li>
-                <li><kbd>Esc</kbd> <span>Limpiar búsqueda / cerrar</span></li>
+                <li><kbd>Esc</kbd> <span>Cerrar / limpiar búsqueda</span></li>
             </ul>
         </div>
     </div>
@@ -67,6 +68,42 @@
         </div>
     </div>
 
+    <!-- ─── MODAL DE TIPOGRAFÍA ─── -->
+    <div id="typography-modal" class="shortcuts-modal" style="display:none;">
+        <div class="shortcuts-card glass-panel">
+            <div class="shortcuts-header">
+                <h3>Tipografía</h3>
+                <button id="close-typography" class="close-btn" aria-label="Cerrar">✕</button>
+            </div>
+            <div class="typography-section">
+                <p class="typography-label">Familia</p>
+                <div class="typography-options" id="font-options">
+                    <button class="typo-btn active" data-font="'Outfit', sans-serif">
+                        <span class="typo-preview" style="font-family:'Outfit',sans-serif">Aa</span>
+                        Sans-serif — Outfit
+                    </button>
+                    <button class="typo-btn" data-font="'JetBrains Mono', monospace">
+                        <span class="typo-preview" style="font-family:'JetBrains Mono',monospace">Aa</span>
+                        Monospace — JetBrains Mono
+                    </button>
+                    <button class="typo-btn" data-font="'Times New Roman', Times, serif">
+                        <span class="typo-preview" style="font-family:'Times New Roman',Times,serif">Aa</span>
+                        Serif — Times New Roman
+                    </button>
+                </div>
+            </div>
+            <div class="typography-section">
+                <p class="typography-label">Tamaño base</p>
+                <div class="typography-options" id="size-options">
+                    <button class="typo-btn" data-size="13">Compacto <span class="typo-size-hint">13px</span></button>
+                    <button class="typo-btn active" data-size="15">Normal <span class="typo-size-hint">15px</span></button>
+                    <button class="typo-btn" data-size="17">Grande <span class="typo-size-hint">17px</span></button>
+                    <button class="typo-btn" data-size="19">Accesible <span class="typo-size-hint">19px</span></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- ─── PALETA DE COMANDOS (Ctrl+K) ─── -->
     <div id="command-palette" class="command-palette" style="display:none;" role="dialog" aria-modal="true" aria-label="Paleta de comandos">
         <div class="command-palette-card">
@@ -79,23 +116,33 @@
         </div>
     </div>
 
-    <!-- ─── APP (oculta hasta autenticarse) ─── -->
+    <!-- ─── BARRA FLOTANTE POMODORO ─── -->
+    <div id="pomodoro-bar" class="pomodoro-bar" style="display:none;" role="status" aria-live="polite">
+        <span class="pomodoro-bar-icon">🍅</span>
+        <span id="pomodoro-task-label" class="pomodoro-task-label"></span>
+        <span id="pomodoro-time" class="pomodoro-time">25:00</span>
+        <button id="pomodoro-stop" class="pomodoro-stop-btn" title="Detener Pomodoro" aria-label="Detener Pomodoro">✕</button>
+    </div>
+
+    <!-- ─── APP ─── -->
     <div id="app" style="display:none; width:100%;">
         <main class="app-container">
             <header class="app-header">
                 <h1 class="glass-title">Mis Tareas</h1>
                 <p class="subtitle">Organiza tu día con estilo <span id="backend-status" class="backend-status" title="Verificando servidor..."></span></p>
                 <div class="theme-switcher" role="group" aria-label="Seleccionar tema">
-                    <button id="theme-cosmos"   class="theme-btn active" title="Cosmos (Default)">🌌</button>
-                    <button id="theme-hacker"   class="theme-btn" title="Terminal Hacker">💻</button>
-                    <button id="theme-office"   class="theme-btn" title="Office Paper">📋</button>
-                    <button id="theme-minimal"  class="theme-btn" title="Dark Minimal">◼</button>
-                    <button id="theme-nord"     class="theme-btn" title="Nord">❄</button>
-                    <button id="theme-sakura"   class="theme-btn" title="Sakura">🌸</button>
-                    <button id="theme-sunset"   class="theme-btn" title="Sunset">🌅</button>
-                    <button id="theme-contrast" class="theme-btn" title="Alto Contraste">◑</button>
-                    <button id="btn-shortcuts"  class="theme-btn" title="Atajos de teclado (?)">⌨</button>
-                    <button id="btn-logout"     class="theme-btn" title="Cerrar sesión">🚪</button>
+                    <button id="theme-cosmos"    class="theme-btn active" title="Cosmos (Default)">🌌</button>
+                    <button id="theme-hacker"    class="theme-btn" title="Terminal Hacker">💻</button>
+                    <button id="theme-office"    class="theme-btn" title="Office Paper">📋</button>
+                    <button id="theme-minimal"   class="theme-btn" title="Dark Minimal">◼</button>
+                    <button id="theme-nord"      class="theme-btn" title="Nord">❄</button>
+                    <button id="theme-sakura"    class="theme-btn" title="Sakura">🌸</button>
+                    <button id="theme-sunset"    class="theme-btn" title="Sunset">🌅</button>
+                    <button id="theme-contrast"  class="theme-btn" title="Alto Contraste">◑</button>
+                    <button id="btn-typography"  class="theme-btn" title="Tipografía">Aa</button>
+                    <button id="btn-stats"       class="theme-btn" title="Estadísticas">📊</button>
+                    <button id="btn-shortcuts"   class="theme-btn" title="Atajos de teclado (?)">⌨</button>
+                    <button id="btn-logout"      class="theme-btn" title="Cerrar sesión">🚪</button>
                 </div>
             </header>
 
@@ -121,6 +168,7 @@
                         <span id="task-count" class="badge">0</span>
                     </div>
                     <div class="list-header-controls">
+                        <button id="view-toggle" class="view-toggle-btn" title="Vista tarjetas (G)" aria-label="Cambiar vista">⊞</button>
                         <select id="sort-select" class="sort-select" title="Ordenar por">
                             <option value="default">Orden manual</option>
                             <option value="az">A → Z</option>
@@ -154,15 +202,43 @@
                     </div>
                 </div>
 
+                <!-- Panel de estadísticas (colapsable) -->
+                <div id="stats-panel" class="stats-panel" style="display:none;">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <span class="stat-value" id="stat-today">0</span>
+                            <span class="stat-label">Completadas hoy</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-value" id="stat-streak">—</span>
+                            <span class="stat-label">Racha de días</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-value" id="stat-rate">0%</span>
+                            <span class="stat-label">Tasa de completación</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-value" id="stat-points">0</span>
+                            <span class="stat-label">Puntos totales</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-value" id="stat-hour">—</span>
+                            <span class="stat-label">Hora más productiva</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-value" id="stat-pomodoros">0</span>
+                            <span class="stat-label">Pomodoros completados</span>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="list-controls" id="list-controls" style="display:none;">
                     <button id="toggle-all-btn" class="control-btn">☑️ Marcar todas</button>
                     <button id="clear-btn" class="control-btn danger-btn">🗑️ Limpiar completadas</button>
                     <button id="btn-export" class="control-btn" title="Exportar tareas (E)">↓ Exportar</button>
                 </div>
 
-                <ul id="todo-list" class="todo-list">
-                    <!-- Tareas se inyectarán aquí mediante JS -->
-                </ul>
+                <ul id="todo-list" class="todo-list"></ul>
             </section>
         </main>
     </div>
