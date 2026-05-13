@@ -29,6 +29,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const statsPanel    = document.getElementById('stats-panel');
     const btnStats      = document.getElementById('btn-stats');
     const btnTypography = document.getElementById('btn-typography');
+    const btnPomodoro   = document.getElementById('btn-pomodoro');
+    const btnCompact    = document.getElementById('btn-compact');
 
     // Auth
     const authModal    = document.getElementById('auth-modal');
@@ -59,10 +61,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const commandResults = document.getElementById('command-results');
 
     // Pomodoro
-    const pomodoroBar       = document.getElementById('pomodoro-bar');
-    const pomodoroTimeEl    = document.getElementById('pomodoro-time');
-    const pomodoroTaskLabel = document.getElementById('pomodoro-task-label');
-    const pomodoroStop      = document.getElementById('pomodoro-stop');
+    const pomodoroBar        = document.getElementById('pomodoro-bar');
+    const pomodoroTimeEl     = document.getElementById('pomodoro-time');
+    const pomodoroPhaseIcon  = document.getElementById('pomodoro-phase-icon');
+    const pomodoroPhaseLabel = document.getElementById('pomodoro-phase-label');
+    const pomodoroStop       = document.getElementById('pomodoro-stop');
 
     // ─── Estado ─────────────────────────────────────────────
     let allTasks        = [];
@@ -76,12 +79,20 @@ document.addEventListener('DOMContentLoaded', () => {
     let undoStack       = [];
     let viewMode        = localStorage.getItem('todo-view') || 'list';
     let statsVisible    = false;
+    let activeTag       = null;
+    let compactMode     = localStorage.getItem('todo-compact') === 'true';
+    let audioCtx        = null;
 
     // Pomodoro state
-    let pomodoroTaskId   = null;
-    let pomodoroInterval = null;
+    let pomodoroInterval  = null;
     let pomodoroRemaining = 25 * 60;
-    const POMODORO_SECS  = 25 * 60;
+    let pomodoroPhase     = 'work'; // 'work' | 'break' | 'focus'
+    let pomodoroCompleted = 0;
+    const PHASES = {
+        work:  { secs: 25 * 60, label: 'Trabajo', icon: '🍅', next: 'break' },
+        break: { secs:  5 * 60, label: 'Descanso', icon: '☕', next: 'focus' },
+        focus: { secs:  5 * 60, label: 'Repaso',  icon: '🔍', next: 'work' },
+    };
 
     // ─────────────────────────────────────────────
     // TOAST
@@ -116,6 +127,39 @@ document.addEventListener('DOMContentLoaded', () => {
         toast.classList.remove('show');
         toast.classList.add('hide');
         toast.addEventListener('transitionend', () => toast.remove(), { once: true });
+    }
+
+    // ─────────────────────────────────────────────
+    // SONIDOS (Web Audio API)
+    // ─────────────────────────────────────────────
+    function getAudioCtx() {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        return audioCtx;
+    }
+
+    function playSound(type) {
+        try {
+            const ctx = getAudioCtx();
+            const g = ctx.createGain();
+            g.connect(ctx.destination);
+            const sounds = {
+                add:      [{ f: 520, t: 0,    dur: 0.08 }, { f: 660, t: 0.08, dur: 0.1 }],
+                complete: [{ f: 440, t: 0,    dur: 0.08 }, { f: 550, t: 0.08, dur: 0.08 }, { f: 660, t: 0.16, dur: 0.12 }],
+                delete:   [{ f: 330, t: 0,    dur: 0.06 }, { f: 260, t: 0.07, dur: 0.1 }],
+                phase:    [{ f: 528, t: 0,    dur: 0.1  }, { f: 528, t: 0.12, dur: 0.1  }, { f: 660, t: 0.25, dur: 0.2 }],
+            };
+            (sounds[type] || sounds.add).forEach(({ f, t, dur }) => {
+                const osc = ctx.createOscillator();
+                const og  = ctx.createGain();
+                osc.connect(og); og.connect(g);
+                osc.type = 'sine';
+                osc.frequency.value = f;
+                og.gain.setValueAtTime(0.18, ctx.currentTime + t);
+                og.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + dur);
+                osc.start(ctx.currentTime + t);
+                osc.stop(ctx.currentTime + t + dur + 0.02);
+            });
+        } catch { /* AudioContext no disponible */ }
     }
 
     // ─────────────────────────────────────────────
@@ -290,6 +334,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     applyViewMode(viewMode);
     if (viewToggle) viewToggle.addEventListener('click', () => applyViewMode(viewMode === 'list' ? 'grid' : 'list'));
+    if (btnCompact) btnCompact.addEventListener('click', toggleCompactMode);
 
     // ─────────────────────────────────────────────
     // MODO ENFOQUE
@@ -468,6 +513,72 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ─────────────────────────────────────────────
+    // PRIORIDAD DE TAREAS
+    // ─────────────────────────────────────────────
+    const PRIORITIES = ['none', 'high', 'medium', 'low'];
+    const PRIORITY_META = {
+        none:   { label: '',      color: 'transparent', icon: '○' },
+        high:   { label: 'Alta',  color: '#ef4444',     icon: '●' },
+        medium: { label: 'Media', color: '#f59e0b',     icon: '●' },
+        low:    { label: 'Baja',  color: '#10b981',     icon: '●' },
+    };
+
+    function getPriorities() { return JSON.parse(localStorage.getItem('todo-priority') || '{}'); }
+    function getPriority(taskId) { return getPriorities()[taskId] || 'none'; }
+    function setPriority(taskId, level) {
+        const data = getPriorities();
+        if (level === 'none') delete data[taskId]; else data[taskId] = level;
+        localStorage.setItem('todo-priority', JSON.stringify(data));
+    }
+    function cyclePriority(taskId, dotEl) {
+        const cur = getPriority(taskId);
+        const next = PRIORITIES[(PRIORITIES.indexOf(cur) + 1) % PRIORITIES.length];
+        setPriority(taskId, next);
+        const meta = PRIORITY_META[next];
+        dotEl.style.color = meta.color;
+        dotEl.title = next === 'none' ? 'Sin prioridad — clic para cambiar' : `Prioridad ${meta.label}`;
+        dotEl.dataset.priority = next;
+    }
+
+    // ─────────────────────────────────────────────
+    // TAGS / ETIQUETAS
+    // ─────────────────────────────────────────────
+    function parseTags(text) {
+        const matches = text.match(/#[\wÀ-ɏḀ-ỿ]+/g);
+        return matches ? [...new Set(matches.map(t => t.toLowerCase()))] : [];
+    }
+
+    function setActiveTag(tag) {
+        activeTag = tag;
+        const indicator = document.getElementById('active-tag-indicator');
+        if (indicator) indicator.remove();
+        if (tag) {
+            const chip = document.createElement('div');
+            chip.id = 'active-tag-indicator';
+            chip.className = 'active-tag-indicator';
+            chip.innerHTML = `Filtrando: <strong>${tag}</strong> <span class="active-tag-clear" title="Quitar filtro">✕</span>`;
+            chip.querySelector('.active-tag-clear').addEventListener('click', () => setActiveTag(null));
+            document.querySelector('.filter-bar').after(chip);
+        }
+        applyFilter();
+    }
+
+    // ─────────────────────────────────────────────
+    // MODO COMPACTO
+    // ─────────────────────────────────────────────
+    function applyCompactMode(on) {
+        compactMode = on;
+        document.body.classList.toggle('compact-mode', on);
+        if (btnCompact) {
+            btnCompact.classList.toggle('active', on);
+            btnCompact.title = on ? 'Vista normal (C)' : 'Modo compacto (C)';
+        }
+        localStorage.setItem('todo-compact', on);
+    }
+    function toggleCompactMode() { applyCompactMode(!compactMode); }
+    applyCompactMode(compactMode);
+
+    // ─────────────────────────────────────────────
     // UNDO STACK
     // ─────────────────────────────────────────────
     function pushUndo(action) { undoStack.push(action); if (undoStack.length > 20) undoStack.shift(); }
@@ -501,47 +612,74 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ─────────────────────────────────────────────
-    // 30. POMODORO TIMER
+    // 30. POMODORO TIMER — MODO POR FASES
     // ─────────────────────────────────────────────
-    function getPomodoroCount(taskId) {
-        return (JSON.parse(localStorage.getItem('todo-pomodoro-stats') || '{}'))[taskId] || 0;
-    }
     function getPomodoroTotal() {
-        const s = JSON.parse(localStorage.getItem('todo-pomodoro-stats') || '{}');
-        return Object.values(s).reduce((a, b) => a + b, 0);
+        return JSON.parse(localStorage.getItem('todo-pomodoro-total') || '0');
+    }
+    function incPomodoroTotal() {
+        localStorage.setItem('todo-pomodoro-total', getPomodoroTotal() + 1);
     }
 
-    function startPomodoro(taskId, taskText) {
-        if (pomodoroInterval) clearInterval(pomodoroInterval);
-        pomodoroTaskId = taskId;
-        pomodoroRemaining = POMODORO_SECS;
-
+    function startPomodoro() {
+        if (pomodoroInterval) { stopPomodoro(true); return; }
         if (Notification.permission === 'default') Notification.requestPermission();
+        pomodoroPhase = 'work';
+        pomodoroCompleted = 0;
+        beginPhase();
+        showToast('Pomodoro iniciado — 25 min de trabajo 🍅', 'info');
+    }
 
+    function beginPhase() {
+        const ph = PHASES[pomodoroPhase];
+        pomodoroRemaining = ph.secs;
         pomodoroBar.style.display = 'flex';
-        pomodoroTaskLabel.textContent = taskText.length > 28 ? taskText.slice(0, 28) + '…' : taskText;
+        pomodoroBar.dataset.phase = pomodoroPhase;
+        pomodoroPhaseIcon.textContent = ph.icon;
+        pomodoroPhaseLabel.textContent = ph.label;
+        if (btnPomodoro) { btnPomodoro.classList.add('active'); btnPomodoro.title = 'Detener Pomodoro'; }
         updatePomodoroDisplay();
-        syncPomodoroButtons();
-
+        if (pomodoroInterval) clearInterval(pomodoroInterval);
         pomodoroInterval = setInterval(() => {
             pomodoroRemaining--;
             updatePomodoroDisplay();
-            if (pomodoroRemaining <= 0) {
-                clearInterval(pomodoroInterval);
-                onPomodoroComplete(taskId, taskText);
-            }
+            if (pomodoroRemaining <= 0) advancePhase();
         }, 1000);
+    }
 
-        showToast(`Pomodoro iniciado — 25 min`, 'info');
+    function advancePhase() {
+        clearInterval(pomodoroInterval);
+        pomodoroInterval = null;
+        const ph = PHASES[pomodoroPhase];
+        playSound('phase');
+
+        if (pomodoroPhase === 'work') {
+            pomodoroCompleted++;
+            incPomodoroTotal();
+            if (Notification.permission === 'granted')
+                new Notification(`☕ Descanso — ${pomodoroCompleted} pomodoro(s) completado(s)`, { body: 'Descansa 5 minutos.' });
+            showToast(`🍅 ¡Trabajo completado! — Descanso de 5 min`, 'magic');
+        } else if (pomodoroPhase === 'break') {
+            if (Notification.permission === 'granted')
+                new Notification('🔍 Momento de repasar', { body: '5 minutos para revisar lo que hiciste.' });
+            showToast('☕ Descanso terminado — Repasa lo visto 🔍', 'info');
+        } else {
+            if (Notification.permission === 'granted')
+                new Notification('🍅 Nuevo ciclo Pomodoro', { body: '¡Vuelve al trabajo!' });
+            showToast('🔍 Repaso terminado — ¡Nuevo ciclo! 🍅', 'magic');
+        }
+
+        pomodoroPhase = ph.next;
+        setTimeout(() => beginPhase(), 1500);
     }
 
     function stopPomodoro(silent = false) {
         clearInterval(pomodoroInterval);
         pomodoroInterval = null;
-        pomodoroTaskId = null;
         pomodoroBar.style.display = 'none';
+        pomodoroBar.dataset.phase = '';
+        if (btnPomodoro) { btnPomodoro.classList.remove('active'); btnPomodoro.title = 'Modo Pomodoro (P)'; }
         updateCount();
-        syncPomodoroButtons();
         if (!silent) showToast('Pomodoro cancelado', 'info');
     }
 
@@ -549,36 +687,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const min = Math.floor(pomodoroRemaining / 60).toString().padStart(2, '0');
         const sec = (pomodoroRemaining % 60).toString().padStart(2, '0');
         pomodoroTimeEl.textContent = `${min}:${sec}`;
-        document.title = `🍅 ${min}:${sec} — Infinity To-Do`;
+        const ph = PHASES[pomodoroPhase];
+        document.title = `${ph.icon} ${min}:${sec} — Infinity To-Do`;
     }
 
-    function onPomodoroComplete(taskId, taskText) {
-        const stats = JSON.parse(localStorage.getItem('todo-pomodoro-stats') || '{}');
-        stats[taskId] = (stats[taskId] || 0) + 1;
-        localStorage.setItem('todo-pomodoro-stats', JSON.stringify(stats));
-
-        pomodoroBar.style.display = 'none';
-        pomodoroTaskId = null;
-        pomodoroInterval = null;
-        updateCount();
-        syncPomodoroButtons();
-
-        if (Notification.permission === 'granted') {
-            new Notification('🍅 Pomodoro completado', { body: `"${taskText}" — Tómate un descanso de 5 minutos.` });
-        }
-        showToast('¡Pomodoro completado! Descansa 5 min 🍅', 'magic');
-    }
-
-    function syncPomodoroButtons() {
-        document.querySelectorAll('.pomodoro-btn').forEach(btn => {
-            const id = parseInt(btn.closest('.todo-item')?.dataset.id);
-            const isRunning = pomodoroInterval && pomodoroTaskId === id;
-            btn.classList.toggle('running', isRunning);
-            btn.title = isRunning ? 'Detener Pomodoro' : 'Iniciar Pomodoro (25 min)';
-            btn.querySelector('.pomodoro-btn-icon').textContent = isRunning ? '⏹' : '🍅';
-        });
-    }
-
+    if (btnPomodoro) btnPomodoro.addEventListener('click', () => {
+        if (pomodoroInterval) stopPomodoro(); else startPomodoro();
+    });
     pomodoroStop.addEventListener('click', () => stopPomodoro());
 
     // ─────────────────────────────────────────────
@@ -622,7 +737,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('stat-rate').textContent      = `${rate}%`;
         document.getElementById('stat-points').textContent    = gamification.points;
         document.getElementById('stat-hour').textContent      = peakLabel;
-        document.getElementById('stat-pomodoros').textContent = getPomodoroTotal();
+        document.getElementById('stat-pomodoros').textContent = getPomodoroTotal() + pomodoroCompleted;
     }
 
     // ─────────────────────────────────────────────
@@ -632,6 +747,8 @@ document.addEventListener('DOMContentLoaded', () => {
         { label:'Nueva tarea',            icon:'✏️',  action: () => { closeCommandPalette(); input.focus(); } },
         { label:'Buscar tareas',           icon:'🔍', action: () => { closeCommandPalette(); searchInput.focus(); } },
         { label:'Vista grid / lista',      icon:'⊞',  action: () => { closeCommandPalette(); applyViewMode(viewMode === 'list' ? 'grid' : 'list'); } },
+        { label:'Modo compacto',           icon:'⊟',  action: () => { closeCommandPalette(); toggleCompactMode(); } },
+        { label:'Iniciar / detener Pomodoro', icon:'⏱', action: () => { closeCommandPalette(); if (pomodoroInterval) stopPomodoro(); else startPomodoro(); } },
         { label:'Tipografía',              icon:'Aa', action: () => { closeCommandPalette(); btnTypography.click(); } },
         { label:'Estadísticas',            icon:'📊', action: () => { closeCommandPalette(); btnStats.click(); } },
         { label:'Exportar tareas',         icon:'↓',  action: () => { closeCommandPalette(); openExportModal(); } },
@@ -779,6 +896,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'f' || e.key === 'F') { e.preventDefault(); toggleFocusMode(); return; }
         if (e.key === 't' || e.key === 'T') { e.preventDefault(); cycleTheme(); return; }
         if (e.key === 'g' || e.key === 'G') { e.preventDefault(); applyViewMode(viewMode === 'list' ? 'grid' : 'list'); return; }
+        if (e.key === 'c' || e.key === 'C') { e.preventDefault(); toggleCompactMode(); return; }
+        if (e.key === 'p' || e.key === 'P') { e.preventDefault(); if (pomodoroInterval) stopPomodoro(); else startPomodoro(); return; }
         if (e.key === 'e' || e.key === 'E') { e.preventDefault(); openExportModal(); return; }
         if (e.key === '?') { e.preventDefault(); openShortcuts(); return; }
         if (e.key === '1') { e.preventDefault(); document.getElementById('filter-all').click(); return; }
@@ -809,6 +928,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (activeFilter === 'pending') filtered = allTasks.filter(t => !t.completed);
         if (activeFilter === 'done')    filtered = allTasks.filter(t => t.completed);
         if (searchQuery) filtered = filtered.filter(t => t.text.toLowerCase().includes(searchQuery));
+        if (activeTag)   filtered = filtered.filter(t => parseTags(t.text).includes(activeTag));
         filtered = sortTasks(filtered);
 
         todoList.innerHTML = '';
@@ -888,6 +1008,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function addTodo(text) {
+        playSound('add');
         showToast(`Tarea añadida`, 'success');
         logActivity('crear', text);
         awardPoints(1, 0);
@@ -924,6 +1045,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await authFetch(`${API_URL}/tasks/${id}`, { method: 'PUT', body: JSON.stringify({ completed: isNowCompleted }) });
             if (!res.ok) throw new Error();
             if (isNowCompleted) {
+                playSound('complete');
                 logActivity('completar', allTasks[idx]?.text || '');
                 awardPoints(2, 1);
                 completedStreak++;
@@ -946,6 +1068,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function deleteTodo(id, element) {
+        playSound('delete');
         const backup = allTasks.find(t => t.id === id);
         allTasks = allTasks.filter(t => t.id !== id);
         element.style.animation = 'fadeOut 0.3s ease forwards';
@@ -997,18 +1120,26 @@ document.addEventListener('DOMContentLoaded', () => {
         li.className = `todo-item ${todo.completed ? 'completed' : ''}`;
         li.dataset.id = todo.id;
 
-        const note     = getNote(todo.id);
-        const pCount   = getPomodoroCount(todo.id);
-        const dueBadge = renderDueBadge(todo.id);
+        const note      = getNote(todo.id);
+        const dueBadge  = renderDueBadge(todo.id);
+        const priority  = getPriority(todo.id);
+        const priMeta   = PRIORITY_META[priority];
+        const tags      = parseTags(todo.text);
+        const tagChips  = tags.map(t =>
+            `<span class="tag-chip${t === activeTag ? ' active' : ''}" data-tag="${t}">${t}</span>`
+        ).join('');
 
         li.innerHTML = `
             <div class="drag-handle" title="Arrastrar">⋮⋮</div>
             <div class="checkbox" role="button" aria-label="Marcar como completado" tabindex="0"></div>
             <div class="todo-main">
                 <div class="todo-top-row">
+                    <span class="priority-dot" data-priority="${priority}" style="color:${priMeta.color}"
+                        title="${priority === 'none' ? 'Sin prioridad — clic para cambiar' : 'Prioridad ' + priMeta.label}">●</span>
                     <span class="todo-text">${escapeHTML(todo.text)}</span>
                     ${dueBadge}
                 </div>
+                ${tagChips ? `<div class="tag-row">${tagChips}</div>` : ''}
                 <div class="todo-note-area ${note ? 'has-note' : ''}">
                     <button class="note-toggle-btn" title="Notas" aria-label="Notas">
                         <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
@@ -1020,12 +1151,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             </div>
             <div class="task-actions">
-                <button class="action-btn pomodoro-btn ${pomodoroInterval && pomodoroTaskId === todo.id ? 'running' : ''}"
-                    title="${pomodoroInterval && pomodoroTaskId === todo.id ? 'Detener Pomodoro' : 'Iniciar Pomodoro (25 min)'}"
-                    aria-label="Pomodoro">
-                    <span class="pomodoro-btn-icon">${pomodoroInterval && pomodoroTaskId === todo.id ? '⏹' : '🍅'}</span>
-                    ${pCount > 0 ? `<span class="pomodoro-count">${pCount}</span>` : ''}
-                </button>
                 <button class="action-btn duplicate-btn" title="Duplicar" aria-label="Duplicar">
                     <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                 </button>
@@ -1038,19 +1163,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const checkbox    = li.querySelector('.checkbox');
         const deleteBtn   = li.querySelector('.delete-btn');
         const dupBtn      = li.querySelector('.duplicate-btn');
-        const pomBtn      = li.querySelector('.pomodoro-btn');
         const textSpan    = li.querySelector('.todo-text');
         const noteToggle  = li.querySelector('.note-toggle-btn');
         const notePanel   = li.querySelector('.note-panel');
         const noteTA      = li.querySelector('.note-textarea');
+        const priorityDot = li.querySelector('.priority-dot');
 
         checkbox.addEventListener('click', () => toggleTodo(todo.id, li));
         deleteBtn.addEventListener('click', () => deleteTodo(todo.id, li));
         dupBtn.addEventListener('click', () => duplicateTodo(todo.id));
+        priorityDot.addEventListener('click', () => cyclePriority(todo.id, priorityDot));
 
-        pomBtn.addEventListener('click', () => {
-            if (pomodoroInterval && pomodoroTaskId === todo.id) stopPomodoro();
-            else startPomodoro(todo.id, todo.text);
+        li.querySelectorAll('.tag-chip').forEach(chip => {
+            chip.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const tag = chip.dataset.tag;
+                setActiveTag(activeTag === tag ? null : tag);
+            });
         });
 
         noteToggle.addEventListener('click', () => {

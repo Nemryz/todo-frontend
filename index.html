@@ -41,6 +41,8 @@
                 <li><kbd>F</kbd> <span>Modo enfoque</span></li>
                 <li><kbd>T</kbd> <span>Cambiar tema</span></li>
                 <li><kbd>G</kbd> <span>Vista grid / lista</span></li>
+                <li><kbd>C</kbd> <span>Modo compacto</span></li>
+                <li><kbd>P</kbd> <span>Pomodoro</span></li>
                 <li><kbd>E</kbd> <span>Exportar tareas</span></li>
                 <li><kbd>1</kbd> <span>Filtro: Todas</span></li>
                 <li><kbd>2</kbd> <span>Filtro: Pendientes</span></li>
@@ -118,8 +120,8 @@
 
     <!-- ─── BARRA FLOTANTE POMODORO ─── -->
     <div id="pomodoro-bar" class="pomodoro-bar" style="display:none;" role="status" aria-live="polite">
-        <span class="pomodoro-bar-icon">🍅</span>
-        <span id="pomodoro-task-label" class="pomodoro-task-label"></span>
+        <span id="pomodoro-phase-icon" class="pomodoro-bar-icon">🍅</span>
+        <span id="pomodoro-phase-label" class="pomodoro-phase-label">Trabajo</span>
         <span id="pomodoro-time" class="pomodoro-time">25:00</span>
         <button id="pomodoro-stop" class="pomodoro-stop-btn" title="Detener Pomodoro" aria-label="Detener Pomodoro">✕</button>
     </div>
@@ -168,7 +170,9 @@
                         <span id="task-count" class="badge">0</span>
                     </div>
                     <div class="list-header-controls">
-                        <button id="view-toggle" class="view-toggle-btn" title="Vista tarjetas (G)" aria-label="Cambiar vista">⊞</button>
+                        <button id="view-toggle"  class="view-toggle-btn" title="Vista tarjetas (G)" aria-label="Cambiar vista">⊞</button>
+                        <button id="btn-pomodoro" class="view-toggle-btn" title="Modo Pomodoro (P)" aria-label="Iniciar Pomodoro">⏱</button>
+                        <button id="btn-compact"  class="view-toggle-btn" title="Modo compacto (C)" aria-label="Modo compacto">⊟</button>
                         <select id="sort-select" class="sort-select" title="Ordenar por">
                             <option value="default">Orden manual</option>
                             <option value="az">A → Z</option>

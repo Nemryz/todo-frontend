@@ -2171,3 +2171,145 @@ body.theme-contrast .auth-btn, body.theme-contrast #add-btn {
 body.theme-contrast .drag-handle { cursor: grab; }
 body.theme-contrast .drag-handle:active { cursor: grabbing; }
 body.theme-contrast input, body.theme-contrast textarea { cursor: text; }
+
+/* ══════════════════════════════════════════════════
+   PRIORIDAD DE TAREAS
+══════════════════════════════════════════════════ */
+
+.priority-dot {
+    font-size: 0.7rem;
+    cursor: pointer;
+    flex-shrink: 0;
+    opacity: 0.9;
+    transition: transform 0.15s, opacity 0.15s;
+    line-height: 1;
+    color: transparent;
+    user-select: none;
+}
+.priority-dot:hover { transform: scale(1.4); opacity: 1; }
+.priority-dot[data-priority="none"] { opacity: 0.2; color: var(--text-muted) !important; }
+.priority-dot[data-priority="none"]:hover { opacity: 0.5; }
+
+/* ══════════════════════════════════════════════════
+   TAGS / ETIQUETAS
+══════════════════════════════════════════════════ */
+
+.tag-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    margin-top: 0.1rem;
+}
+
+.tag-chip {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 0.1rem 0.45rem;
+    border-radius: 999px;
+    background: rgba(147, 51, 234, 0.1);
+    border: 1px solid rgba(147, 51, 234, 0.25);
+    color: var(--primary);
+    cursor: pointer;
+    transition: all 0.18s;
+    user-select: none;
+}
+.tag-chip:hover { background: rgba(147, 51, 234, 0.2); border-color: var(--primary); }
+.tag-chip.active {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+    box-shadow: 0 0 8px rgba(147, 51, 234, 0.4);
+}
+
+/* Indicador de tag activo sobre la lista */
+.active-tag-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 0.75rem;
+    padding: 0.35rem 0.75rem;
+    background: rgba(147, 51, 234, 0.08);
+    border: 1px solid rgba(147, 51, 234, 0.2);
+    border-radius: 0.6rem;
+    animation: fadeIn 0.2s ease;
+}
+.active-tag-indicator strong { color: var(--primary); }
+.active-tag-clear {
+    margin-left: auto;
+    cursor: pointer;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    padding: 0 0.2rem;
+    transition: color 0.15s;
+}
+.active-tag-clear:hover { color: var(--danger); }
+
+/* Adaptaciones por tema */
+body.theme-hacker .tag-chip {
+    background: rgba(0, 255, 65, 0.07);
+    border-color: rgba(0, 255, 65, 0.25);
+    color: #00ff41;
+}
+body.theme-hacker .tag-chip.active { background: #00ff41; color: #000; }
+body.theme-office .tag-chip { background: rgba(37, 99, 235, 0.07); border-color: rgba(37,99,235,0.2); color: #2563eb; }
+body.theme-office .tag-chip.active { background: #2563eb; color: #fff; }
+body.theme-contrast .tag-chip { background: transparent; border-color: #fff; color: #fff; }
+body.theme-contrast .tag-chip.active { background: #ffff00; color: #000; border-color: #ffff00; }
+
+/* ══════════════════════════════════════════════════
+   MODO COMPACTO
+══════════════════════════════════════════════════ */
+
+body.compact-mode .todo-item {
+    padding: 0.6rem 0.9rem;
+    gap: 0.6rem;
+    border-radius: 0.65rem;
+}
+
+body.compact-mode .todo-list { gap: 0.4rem; }
+
+body.compact-mode .todo-text { font-size: 0.88rem; }
+
+body.compact-mode .todo-note-area { display: none; }
+
+body.compact-mode .tag-row { margin-top: 0; }
+
+body.compact-mode .tag-chip { font-size: 0.62rem; padding: 0.05rem 0.35rem; }
+
+body.compact-mode .drag-handle { font-size: 1rem; padding: 0 0.3rem; }
+
+body.compact-mode .checkbox { width: 18px; height: 18px; }
+
+body.compact-mode .due-badge { font-size: 0.62rem; padding: 0.1rem 0.4rem; }
+
+body.compact-mode .action-btn { padding: 0.2rem; }
+body.compact-mode .action-btn svg { width: 13px; height: 13px; }
+body.compact-mode .delete-btn svg { width: 14px; height: 14px; }
+
+/* ══════════════════════════════════════════════════
+   POMODORO — FASES EN LA BARRA
+══════════════════════════════════════════════════ */
+
+.pomodoro-phase-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    letter-spacing: 0.03em;
+}
+
+/* Color de la barra según la fase activa */
+.pomodoro-bar[data-phase="work"]  { border-color: rgba(239, 68, 68, 0.4); }
+.pomodoro-bar[data-phase="break"] { border-color: rgba(16, 185, 129, 0.4); }
+.pomodoro-bar[data-phase="focus"] { border-color: rgba(59, 130, 246, 0.4); }
+
+.pomodoro-bar[data-phase="work"]  .pomodoro-time { color: #f87171; }
+.pomodoro-bar[data-phase="break"] .pomodoro-time { color: #34d399; }
+.pomodoro-bar[data-phase="focus"] .pomodoro-time { color: #60a5fa; }
+
+.pomodoro-bar[data-phase="work"]  .pomodoro-phase-label { color: #f87171; }
+.pomodoro-bar[data-phase="break"] .pomodoro-phase-label { color: #34d399; }
+.pomodoro-bar[data-phase="focus"] .pomodoro-phase-label { color: #60a5fa; }
