@@ -200,8 +200,34 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // ─── Aviso de novedades (una vez por usuario) ───
+    const whatsNewModal   = document.getElementById('whats-new-modal');
+    const closeWhatsNew   = document.getElementById('close-whats-new');
+    const btnWhatsNewOk   = document.getElementById('btn-whats-new-ok');
+    const WHATS_NEW_KEY   = 'todo-whats-new-v1';
+
+    function maybeShowWhatsNew(userId) {
+        const seen = localStorage.getItem(`${WHATS_NEW_KEY}-${userId}`);
+        if (seen) return;
+        whatsNewModal.style.display = 'flex';
+    }
+    function dismissWhatsNew() {
+        whatsNewModal.style.display = 'none';
+        if (currentSession?.user?.id)
+            localStorage.setItem(`${WHATS_NEW_KEY}-${currentSession.user.id}`, '1');
+    }
+    if (closeWhatsNew) closeWhatsNew.addEventListener('click', dismissWhatsNew);
+    if (btnWhatsNewOk) btnWhatsNewOk.addEventListener('click', dismissWhatsNew);
+    whatsNewModal.addEventListener('click', (e) => { if (e.target === whatsNewModal) dismissWhatsNew(); });
+
     function showAuthModal() { authModal.style.display = 'flex'; appDiv.style.display = 'none'; allTasks = []; }
-    function showApp() { authModal.style.display = 'none'; appDiv.style.display = 'flex'; checkBackendStatus(); loadTasks(); }
+    function showApp() {
+        authModal.style.display = 'none';
+        appDiv.style.display = 'flex';
+        checkBackendStatus();
+        loadTasks();
+        if (currentSession?.user?.id) maybeShowWhatsNew(currentSession.user.id);
+    }
 
     async function checkBackendStatus() {
         const dot = document.getElementById('backend-status');

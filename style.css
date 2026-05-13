@@ -2173,6 +2173,41 @@ body.theme-contrast .drag-handle:active { cursor: grabbing; }
 body.theme-contrast input, body.theme-contrast textarea { cursor: text; }
 
 /* ══════════════════════════════════════════════════
+   AVISO DE NOVEDADES
+══════════════════════════════════════════════════ */
+
+.whats-new-card {
+    max-width: 480px;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.whats-new-intro {
+    font-size: 0.88rem;
+    color: var(--text-muted);
+    margin-bottom: 0.9rem;
+}
+
+.whats-new-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+
+.whats-new-list li {
+    font-size: 0.85rem;
+    color: var(--text-main);
+    padding: 0.4rem 0.6rem;
+    border-left: 2px solid var(--glass-border);
+    line-height: 1.45;
+}
+
+.whats-new-card::-webkit-scrollbar { width: 4px; }
+.whats-new-card::-webkit-scrollbar-track { background: transparent; }
+.whats-new-card::-webkit-scrollbar-thumb { background: var(--glass-border); border-radius: 4px; }
+
+/* ══════════════════════════════════════════════════
    PRIORIDAD DE TAREAS
 ══════════════════════════════════════════════════ */
 
