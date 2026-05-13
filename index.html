@@ -15,8 +15,9 @@
     <!-- ─── MODAL DE AUTENTICACIÓN ─── -->
     <div id="auth-modal" class="auth-modal">
         <div class="auth-card glass-panel">
-            <h2 class="glass-title" style="-webkit-text-fill-color: unset; background: none; color: var(--text-main);">✦ Infinity To-Do</h2>
-            <p class="subtitle">Inicia sesión para continuar</p>
+            <h2 class="glass-title auth-logo-title">✦ Infinity To-Do</h2>
+            <p class="subtitle auth-subtitle"><strong>Organiza tus tareas.</strong> <em>Mantén el control de tu día.</em></p>
+            <p class="auth-onboarding"><em>Arrastra para reordenar tareas. Usa <strong>/</strong> para buscar y <strong>N</strong> para crear una tarea nueva.</em></p>
             <input id="auth-email" type="email" placeholder="Correo electrónico" autocomplete="email">
             <input id="auth-password" type="password" placeholder="Contraseña" autocomplete="current-password">
             <div class="auth-buttons">
@@ -27,6 +28,43 @@
         </div>
     </div>
 
+    <!-- ─── PANEL DE ATAJOS DE TECLADO ─── -->
+    <div id="shortcuts-modal" class="shortcuts-modal" style="display:none;">
+        <div class="shortcuts-card glass-panel">
+            <div class="shortcuts-header">
+                <h3>Atajos de teclado</h3>
+                <button id="close-shortcuts" class="close-btn" aria-label="Cerrar">✕</button>
+            </div>
+            <ul class="shortcuts-list">
+                <li><kbd>/</kbd> <span>Enfocar búsqueda</span></li>
+                <li><kbd>N</kbd> <span>Nueva tarea</span></li>
+                <li><kbd>F</kbd> <span>Modo enfoque</span></li>
+                <li><kbd>T</kbd> <span>Cambiar tema</span></li>
+                <li><kbd>E</kbd> <span>Exportar tareas</span></li>
+                <li><kbd>1</kbd> <span>Filtro: Todas</span></li>
+                <li><kbd>2</kbd> <span>Filtro: Pendientes</span></li>
+                <li><kbd>3</kbd> <span>Filtro: Completadas</span></li>
+                <li><kbd>?</kbd> <span>Mostrar este panel</span></li>
+                <li><kbd>Esc</kbd> <span>Limpiar búsqueda / cerrar</span></li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- ─── MODAL DE EXPORTAR ─── -->
+    <div id="export-modal" class="shortcuts-modal" style="display:none;">
+        <div class="shortcuts-card glass-panel">
+            <div class="shortcuts-header">
+                <h3>Exportar tareas</h3>
+                <button id="close-export" class="close-btn" aria-label="Cerrar">✕</button>
+            </div>
+            <div class="export-buttons">
+                <button id="export-json" class="auth-btn">JSON</button>
+                <button id="export-csv" class="auth-btn secondary">CSV</button>
+                <button id="export-md" class="auth-btn secondary">Markdown</button>
+            </div>
+        </div>
+    </div>
+
     <!-- ─── APP (oculta hasta autenticarse) ─── -->
     <div id="app" style="display:none; width:100%;">
         <main class="app-container">
@@ -34,10 +72,16 @@
                 <h1 class="glass-title">Mis Tareas</h1>
                 <p class="subtitle">Organiza tu día con estilo <span id="backend-status" class="backend-status" title="Verificando servidor..."></span></p>
                 <div class="theme-switcher" role="group" aria-label="Seleccionar tema">
-                    <button id="theme-cosmos" class="theme-btn active" title="Cosmos (Default)">🌌</button>
-                    <button id="theme-hacker" class="theme-btn" title="Terminal Hacker">💻</button>
-                    <button id="theme-office" class="theme-btn" title="Office Paper">📋</button>
-                    <button id="btn-logout" class="theme-btn" title="Cerrar sesión">🚪</button>
+                    <button id="theme-cosmos"   class="theme-btn active" title="Cosmos (Default)">🌌</button>
+                    <button id="theme-hacker"   class="theme-btn" title="Terminal Hacker">💻</button>
+                    <button id="theme-office"   class="theme-btn" title="Office Paper">📋</button>
+                    <button id="theme-minimal"  class="theme-btn" title="Dark Minimal">◼</button>
+                    <button id="theme-nord"     class="theme-btn" title="Nord">❄</button>
+                    <button id="theme-sakura"   class="theme-btn" title="Sakura">🌸</button>
+                    <button id="theme-sunset"   class="theme-btn" title="Sunset">🌅</button>
+                    <button id="theme-contrast" class="theme-btn" title="Alto Contraste">◑</button>
+                    <button id="btn-shortcuts"  class="theme-btn" title="Atajos de teclado (?)">⌨</button>
+                    <button id="btn-logout"     class="theme-btn" title="Cerrar sesión">🚪</button>
                 </div>
             </header>
 
@@ -84,6 +128,7 @@
                 <div class="list-controls" id="list-controls" style="display:none;">
                     <button id="toggle-all-btn" class="control-btn">☑️ Marcar todas</button>
                     <button id="clear-btn" class="control-btn danger-btn">🗑️ Limpiar completadas</button>
+                    <button id="btn-export" class="control-btn" title="Exportar tareas (E)">↓ Exportar</button>
                 </div>
 
                 <ul id="todo-list" class="todo-list">
@@ -101,6 +146,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

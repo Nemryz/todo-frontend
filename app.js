@@ -32,6 +32,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnLogout    = document.getElementById('btn-logout');
     const appDiv       = document.getElementById('app');
 
+    // ─── Modal DOM refs ──────────────────────────────────────
+    const shortcutsModal  = document.getElementById('shortcuts-modal');
+    const closeShortcuts  = document.getElementById('close-shortcuts');
+    const btnShortcuts    = document.getElementById('btn-shortcuts');
+    const exportModal     = document.getElementById('export-modal');
+    const closeExport     = document.getElementById('close-export');
+    const btnExport       = document.getElementById('btn-export');
+    const exportJson      = document.getElementById('export-json');
+    const exportCsv       = document.getElementById('export-csv');
+    const exportMd        = document.getElementById('export-md');
+
     // ─── Estado ─────────────────────────────────────────────
     let allTasks        = [];
     let activeFilter    = 'all';
@@ -39,6 +50,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let confirmTimer    = null;
     let completedStreak = 0;
     let currentSession  = null;
+    let focusMode       = false;
 
     // ─────────────────────────────────────────────
     // TOAST NOTIFICATIONS
@@ -68,6 +80,35 @@ document.addEventListener('DOMContentLoaded', () => {
             toast.classList.add('hide');
             toast.addEventListener('transitionend', () => toast.remove());
         }, 3000);
+    }
+
+    // ─────────────────────────────────────────────
+    // TRADUCCIÓN DE ERRORES DE AUTENTICACIÓN
+    // ─────────────────────────────────────────────
+    function translateAuthError(error) {
+        const msg = (error.message || '').toLowerCase();
+        if (msg.includes('invalid login credentials') || msg.includes('user not found') || msg.includes('no user found'))
+            return { bold: 'El correo ingresado no está registrado.', italic: 'Verifica que sea correcto o crea una cuenta nueva.' };
+        if (msg.includes('invalid password') || msg.includes('wrong password'))
+            return { bold: 'La contraseña no es correcta.', italic: 'Intenta nuevamente o restablece tu contraseña.' };
+        if (msg.includes('invalid email') || msg.includes('unable to validate email'))
+            return { bold: 'El correo no tiene un formato válido.', italic: 'Revisa que incluya @ y un dominio.' };
+        if (msg.includes('already registered') || msg.includes('already exists') || msg.includes('user already registered'))
+            return { bold: 'Este correo ya tiene una cuenta.', italic: 'Intenta iniciar sesión o usa otro correo.' };
+        if (msg.includes('password should be') || msg.includes('password must'))
+            return { bold: 'La contraseña es demasiado corta.', italic: 'Debe tener al menos 6 caracteres.' };
+        if (msg.includes('rate limit') || msg.includes('too many'))
+            return { bold: 'Demasiados intentos.', italic: 'Espera unos minutos antes de intentarlo de nuevo.' };
+        return { bold: 'Error al autenticar.', italic: 'Intenta de nuevo en unos momentos.' };
+    }
+
+    function showAuthError({ bold, italic }) {
+        authError.style.color = 'var(--danger)';
+        authError.innerHTML = `<strong>${bold}</strong> <em>${italic}</em>`;
+    }
+
+    function clearAuthError() {
+        authError.innerHTML = '';
     }
 
     // ─────────────────────────────────────────────
@@ -107,7 +148,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const res = await fetch(`${API_URL}/`, { signal: AbortSignal.timeout(6000) });
             dot.className = 'backend-status ' + (res.ok ? 'online' : 'offline');
-            dot.title = res.ok ? 'Servidor en línea ✓' : 'Servidor con problemas';
+            dot.title = res.ok ? 'Servidor en línea' : 'Servidor con problemas';
         } catch {
             dot.className = 'backend-status offline';
             dot.title = 'Servidor no disponible — puede estar iniciando (~30s)';
@@ -118,23 +159,27 @@ document.addEventListener('DOMContentLoaded', () => {
         const email    = authEmail.value.trim();
         const password = authPassword.value;
         if (!email || !password) return;
-        authError.textContent = '';
+        clearAuthError();
         btnLogin.disabled = true;
         const { error } = await sb.auth.signInWithPassword({ email, password });
         btnLogin.disabled = false;
-        if (error) authError.textContent = error.message;
+        if (error) showAuthError(translateAuthError(error));
     });
 
     btnRegister.addEventListener('click', async () => {
         const email    = authEmail.value.trim();
         const password = authPassword.value;
         if (!email || !password) return;
-        authError.textContent = '';
+        clearAuthError();
         btnRegister.disabled = true;
         const { error } = await sb.auth.signUp({ email, password });
         btnRegister.disabled = false;
-        if (error) authError.textContent = error.message;
-        else authError.style.color = 'var(--success)', authError.textContent = '¡Revisa tu correo para confirmar!';
+        if (error) {
+            showAuthError(translateAuthError(error));
+        } else {
+            authError.style.color = 'var(--success)';
+            authError.innerHTML = '<strong>Cuenta creada.</strong> <em>Revisa tu correo para confirmar tu dirección antes de iniciar sesión.</em>';
+        }
     });
 
     btnLogout.addEventListener('click', async () => {
@@ -143,8 +188,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // ─────────────────────────────────────────────
-    // authFetch — reemplaza fetch() en todos los endpoints
-    // Añade automáticamente el token JWT en cada request
+    // authFetch — añade JWT en cada request
     // ─────────────────────────────────────────────
     async function authFetch(url, options = {}) {
         if (!currentSession) throw new Error('No autenticado');
@@ -156,19 +200,27 @@ document.addEventListener('DOMContentLoaded', () => {
     // ─────────────────────────────────────────────
     // SISTEMA DE TEMAS
     // ─────────────────────────────────────────────
-    const themes = ['cosmos', 'hacker', 'office'];
-    const themeBtns = {
-        cosmos: document.getElementById('theme-cosmos'),
-        hacker: document.getElementById('theme-hacker'),
-        office: document.getElementById('theme-office'),
-    };
+    const themes = ['cosmos', 'hacker', 'office', 'minimal', 'nord', 'sakura', 'sunset', 'contrast'];
+    const themeBtns = {};
+    themes.forEach(t => {
+        const el = document.getElementById(`theme-${t}`);
+        if (el) themeBtns[t] = el;
+    });
 
     function applyTheme(theme) {
         themes.forEach(t => document.body.classList.remove(`theme-${t}`));
         if (theme !== 'cosmos') document.body.classList.add(`theme-${theme}`);
         Object.values(themeBtns).forEach(btn => btn.classList.remove('active'));
-        themeBtns[theme].classList.add('active');
+        if (themeBtns[theme]) themeBtns[theme].classList.add('active');
         localStorage.setItem('todo-theme', theme);
+    }
+
+    function cycleTheme() {
+        const current = localStorage.getItem('todo-theme') || 'cosmos';
+        const idx = themes.indexOf(current);
+        const next = themes[(idx + 1) % themes.length];
+        applyTheme(next);
+        showToast(`Tema: ${next.charAt(0).toUpperCase() + next.slice(1)}`, 'info');
     }
 
     const savedTheme = localStorage.getItem('todo-theme') || 'cosmos';
@@ -177,6 +229,129 @@ document.addEventListener('DOMContentLoaded', () => {
     Object.entries(themeBtns).forEach(([theme, btn]) => {
         btn.addEventListener('click', () => applyTheme(theme));
     });
+
+    // ─────────────────────────────────────────────
+    // MODO ENFOQUE
+    // ─────────────────────────────────────────────
+    function toggleFocusMode() {
+        focusMode = !focusMode;
+        document.body.classList.toggle('focus-mode', focusMode);
+        localStorage.setItem('todo-focus', focusMode);
+        showToast(focusMode ? 'Modo enfoque activado' : 'Modo enfoque desactivado', 'info');
+    }
+
+    // ─────────────────────────────────────────────
+    // MODALES DE ATAJOS Y EXPORTAR
+    // ─────────────────────────────────────────────
+    function openShortcuts() { shortcutsModal.style.display = 'flex'; }
+    function closeShortcutsModal() { shortcutsModal.style.display = 'none'; }
+    function openExportModal() { exportModal.style.display = 'flex'; }
+    function closeExportModal() { exportModal.style.display = 'none'; }
+
+    if (btnShortcuts) btnShortcuts.addEventListener('click', openShortcuts);
+    if (closeShortcuts) closeShortcuts.addEventListener('click', closeShortcutsModal);
+    if (btnExport) btnExport.addEventListener('click', openExportModal);
+    if (closeExport) closeExport.addEventListener('click', closeExportModal);
+
+    shortcutsModal.addEventListener('click', (e) => { if (e.target === shortcutsModal) closeShortcutsModal(); });
+    exportModal.addEventListener('click', (e) => { if (e.target === exportModal) closeExportModal(); });
+
+    // ─────────────────────────────────────────────
+    // EXPORTAR TAREAS
+    // ─────────────────────────────────────────────
+    function downloadFile(content, filename, mimeType) {
+        const blob = new Blob([content], { type: mimeType });
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href     = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    function exportTasks(format) {
+        if (allTasks.length === 0) { showToast('No hay tareas para exportar', 'warning'); return; }
+        const now = new Date().toISOString().slice(0, 10);
+        if (format === 'json') {
+            const clean = allTasks.map(({ id, text, completed, order_index }) => ({ id, text, completed, order_index }));
+            downloadFile(JSON.stringify(clean, null, 2), `tareas-${now}.json`, 'application/json');
+        }
+        if (format === 'csv') {
+            const header = 'id,texto,completada,orden';
+            const rows = allTasks.map(t =>
+                `${t.id},"${(t.text || '').replace(/"/g, '""')}",${t.completed},${t.order_index}`
+            );
+            downloadFile([header, ...rows].join('\n'), `tareas-${now}.csv`, 'text/csv;charset=utf-8;');
+        }
+        if (format === 'markdown') {
+            const lines = allTasks.map(t => `- [${t.completed ? 'x' : ' '}] ${t.text}`);
+            downloadFile(lines.join('\n'), `tareas-${now}.md`, 'text/markdown');
+        }
+        closeExportModal();
+        showToast(`Tareas exportadas como ${format.toUpperCase()}`, 'success');
+    }
+
+    if (exportJson) exportJson.addEventListener('click', () => exportTasks('json'));
+    if (exportCsv)  exportCsv.addEventListener('click',  () => exportTasks('csv'));
+    if (exportMd)   exportMd.addEventListener('click',   () => exportTasks('markdown'));
+
+    // ─────────────────────────────────────────────
+    // GAMIFICACIÓN (localStorage)
+    // ─────────────────────────────────────────────
+    const LEVELS = [
+        { name: 'Bronce',   min: 0    },
+        { name: 'Plata',    min: 100  },
+        { name: 'Oro',      min: 500  },
+        { name: 'Diamante', min: 2000 },
+    ];
+
+    const ACHIEVEMENTS = [
+        { id: 'first',    label: 'Primera tarea',     check: (pts, count) => count >= 1 },
+        { id: 'ten',      label: '10 tareas totales',  check: (pts, count) => count >= 10 },
+        { id: 'fifty',    label: '50 tareas totales',  check: (pts, count) => count >= 50 },
+        { id: 'silver',   label: 'Nivel Plata',        check: (pts)        => pts >= 100 },
+        { id: 'gold',     label: 'Nivel Oro',          check: (pts)        => pts >= 500 },
+        { id: 'diamond',  label: 'Nivel Diamante',     check: (pts)        => pts >= 2000 },
+    ];
+
+    function getGamification() {
+        return JSON.parse(localStorage.getItem('todo-gamification') || '{"points":0,"totalCompleted":0,"achievements":[]}');
+    }
+
+    function saveGamification(data) {
+        localStorage.setItem('todo-gamification', JSON.stringify(data));
+    }
+
+    function awardPoints(points, totalCompleted) {
+        const data = getGamification();
+        data.points         += points;
+        data.totalCompleted += totalCompleted;
+
+        const prevLevel = LEVELS.filter(l => l.min <= (data.points - points)).pop();
+        const newLevel  = LEVELS.filter(l => l.min <= data.points).pop();
+        if (newLevel.name !== prevLevel.name) {
+            showToast(`Nivel alcanzado: ${newLevel.name}`, 'magic');
+        }
+
+        ACHIEVEMENTS.forEach(ach => {
+            if (!data.achievements.includes(ach.id) && ach.check(data.points, data.totalCompleted)) {
+                data.achievements.push(ach.id);
+                setTimeout(() => showToast(`Logro desbloqueado: ${ach.label}`, 'magic'), 500);
+            }
+        });
+
+        saveGamification(data);
+    }
+
+    // ─────────────────────────────────────────────
+    // HISTORIAL DE ACTIVIDAD
+    // ─────────────────────────────────────────────
+    function logActivity(action, taskText) {
+        const history = JSON.parse(localStorage.getItem('todo-history') || '[]');
+        history.unshift({ action, taskText, ts: Date.now() });
+        if (history.length > 50) history.pop();
+        localStorage.setItem('todo-history', JSON.stringify(history));
+    }
 
     // ─────────────────────────────────────────────
     // BOTÓN LIMPIAR COMPLETADAS (2 clics para confirmar)
@@ -245,8 +420,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // ─────────────────────────────────────────────
     // ATAJOS DE TECLADO
     // ─────────────────────────────────────────────
+    function isTyping() {
+        const tag = document.activeElement.tagName;
+        return tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement.isContentEditable;
+    }
+
     document.addEventListener('keydown', (e) => {
+        // Cerrar modales con Escape
         if (e.key === 'Escape') {
+            if (shortcutsModal.style.display !== 'none') { closeShortcutsModal(); return; }
+            if (exportModal.style.display !== 'none') { closeExportModal(); return; }
             if (document.activeElement === input || document.activeElement === searchInput) {
                 document.activeElement.blur();
             }
@@ -255,15 +438,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 searchQuery = '';
                 applyFilter();
             }
+            return;
         }
-        if (e.key === '/' && document.activeElement !== input && document.activeElement !== searchInput) {
-            e.preventDefault();
-            searchInput.focus();
-        }
-        if (e.key === 'n' && document.activeElement !== input && document.activeElement !== searchInput && document.activeElement.tagName !== 'INPUT') {
-            e.preventDefault();
-            input.focus();
-        }
+
+        if (isTyping()) return;
+
+        if (e.key === '/') { e.preventDefault(); searchInput.focus(); return; }
+        if (e.key === 'n') { e.preventDefault(); input.focus(); return; }
+        if (e.key === 'f' || e.key === 'F') { e.preventDefault(); toggleFocusMode(); return; }
+        if (e.key === 't' || e.key === 'T') { e.preventDefault(); cycleTheme(); return; }
+        if (e.key === 'e' || e.key === 'E') { e.preventDefault(); openExportModal(); return; }
+        if (e.key === '?') { e.preventDefault(); openShortcuts(); return; }
+        if (e.key === '1') { e.preventDefault(); document.getElementById('filter-all').click(); return; }
+        if (e.key === '2') { e.preventDefault(); document.getElementById('filter-pending').click(); return; }
+        if (e.key === '3') { e.preventDefault(); document.getElementById('filter-done').click(); return; }
     });
 
     // ─────────────────────────────────────────────
@@ -353,6 +541,15 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // ─────────────────────────────────────────────
+    // CONFETTI
+    // ─────────────────────────────────────────────
+    function launchConfetti() {
+        if (typeof confetti === 'function') {
+            confetti({ particleCount: 100, spread: 80, origin: { y: 0.6 }, colors: ['#9333ea', '#6366f1', '#f472b6', '#10b981'] });
+        }
+    }
+
+    // ─────────────────────────────────────────────
     // FUNCIONES DE LA API
     // ─────────────────────────────────────────────
 
@@ -372,6 +569,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function addTodo(text) {
         showToast(`Tarea añadida: "${text}"`, 'success');
+        logActivity('crear', text);
+        awardPoints(1, 0);
         try {
             const res = await authFetch(`${API_URL}/tasks`, {
                 method: 'POST',
@@ -418,12 +617,18 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!res.ok) throw new Error('Error al actualizar tarea');
 
             if (isNowCompleted) {
+                const taskText = allTasks[taskIndex] ? allTasks[taskIndex].text : '';
+                logActivity('completar', taskText);
+                awardPoints(2, 1);
                 completedStreak++;
-                if (completedStreak === 3) {
+
+                const pending = allTasks.filter(t => !t.completed).length;
+                if (pending === 0 && allTasks.length > 0) {
+                    showToast('¡Día libre! Todas completadas 🎉', 'magic');
+                    launchConfetti();
+                } else if (completedStreak === 3) {
                     showToast('¡Estás on fire! 3 seguidas 🔥', 'fire');
                     completedStreak = 0;
-                } else if (allTasks.every(t => t.completed) && allTasks.length > 0) {
-                    showToast('¡Día libre! Todas completadas 🎉', 'magic');
                 } else {
                     showToast('¡Una menos!', 'success');
                 }
@@ -447,6 +652,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const backup = allTasks.find(t => t.id === id);
         allTasks = allTasks.filter(t => t.id !== id);
         element.style.animation = 'fadeOut 0.3s ease forwards';
+        if (backup) logActivity('eliminar', backup.text);
         showToast('Tarea eliminada', 'warning');
         setTimeout(() => applyFilter(), 300);
         try {
@@ -583,9 +789,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function showLoading() {
         todoList.innerHTML = `
-            <li style="text-align:center; color: var(--text-muted); padding: 2rem;">
-                Cargando tareas...
-            </li>
+            <li class="skeleton"></li>
+            <li class="skeleton" style="width:85%;opacity:0.7;animation-delay:0.15s"></li>
+            <li class="skeleton" style="width:70%;opacity:0.5;animation-delay:0.3s"></li>
         `;
     }
 
