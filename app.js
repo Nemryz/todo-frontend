@@ -1,6 +1,6 @@
 const API_URL        = 'https://todo-api-backend-t5pj.onrender.com';
 const SUPABASE_URL   = 'https://khyoesumffyfkwsrxkzm.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_FzQ38GSuCVGWIc3K7eTHDA_aub4_Yqi'; // anon key (pública)
+const SUPABASE_ANON_KEY = 'sb_publishable_FzQ38GSuCVGWIc3K7eTHDA_aub4_Yqi';
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -21,6 +21,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const badgeAll      = document.getElementById('badge-all');
     const badgePending  = document.getElementById('badge-pending');
     const badgeDone     = document.getElementById('badge-done');
+    const charCounter   = document.getElementById('char-counter');
+    const datePreview   = document.getElementById('date-preview');
+    const sortSelect    = document.getElementById('sort-select');
 
     // ─── Auth DOM refs ───────────────────────────────────────
     const authModal    = document.getElementById('auth-modal');
@@ -43,14 +46,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const exportCsv       = document.getElementById('export-csv');
     const exportMd        = document.getElementById('export-md');
 
+    // ─── Command Palette refs ────────────────────────────────
+    const commandPalette  = document.getElementById('command-palette');
+    const commandInput    = document.getElementById('command-input');
+    const commandResults  = document.getElementById('command-results');
+
     // ─── Estado ─────────────────────────────────────────────
     let allTasks        = [];
     let activeFilter    = 'all';
     let searchQuery     = '';
+    let sortOrder       = 'default';
     let confirmTimer    = null;
     let completedStreak = 0;
     let currentSession  = null;
     let focusMode       = false;
+    let undoStack       = [];
 
     // ─────────────────────────────────────────────
     // TOAST NOTIFICATIONS
@@ -59,27 +69,43 @@ document.addEventListener('DOMContentLoaded', () => {
     toastContainer.className = 'toast-container';
     document.body.appendChild(toastContainer);
 
-    function showToast(message, type = 'info') {
+    function showToast(message, type = 'info', actionLabel = null, actionFn = null) {
         const toast = document.createElement('div');
         toast.className = `toast ${type}`;
 
-        const icons = {
-            success: '✅',
-            error: '🚨',
-            info: '💡',
-            warning: '⚠️',
-            magic: '✨',
-            fire: '🔥'
-        };
-        toast.innerHTML = `<span>${icons[type] || icons.info}</span> <span>${message}</span>`;
-        toastContainer.appendChild(toast);
+        const icons = { success: '✅', error: '🚨', info: '💡', warning: '⚠️', magic: '✨', fire: '🔥' };
+        let html = `<span>${icons[type] || icons.info}</span> <span>${message}</span>`;
+        if (actionLabel && actionFn) {
+            html += `<button class="toast-action">${actionLabel}</button>`;
+        }
+        toast.innerHTML = html;
 
+        if (actionLabel && actionFn) {
+            toast.querySelector('.toast-action').addEventListener('click', () => {
+                actionFn();
+                toast.classList.remove('show');
+                toast.classList.add('hide');
+                toast.addEventListener('transitionend', () => toast.remove());
+            });
+        }
+
+        toastContainer.appendChild(toast);
         requestAnimationFrame(() => toast.classList.add('show'));
-        setTimeout(() => {
+        const timer = setTimeout(() => {
             toast.classList.remove('show');
             toast.classList.add('hide');
             toast.addEventListener('transitionend', () => toast.remove());
-        }, 3000);
+        }, 4000);
+
+        toast.addEventListener('click', (e) => {
+            if (e.target.classList.contains('toast-action')) return;
+            clearTimeout(timer);
+            toast.classList.remove('show');
+            toast.classList.add('hide');
+            toast.addEventListener('transitionend', () => toast.remove());
+        });
+
+        return toast;
     }
 
     // ─────────────────────────────────────────────
@@ -107,21 +133,15 @@ document.addEventListener('DOMContentLoaded', () => {
         authError.innerHTML = `<strong>${bold}</strong> <em>${italic}</em>`;
     }
 
-    function clearAuthError() {
-        authError.innerHTML = '';
-    }
+    function clearAuthError() { authError.innerHTML = ''; }
 
     // ─────────────────────────────────────────────
     // AUTENTICACIÓN
     // ─────────────────────────────────────────────
     async function initAuth() {
         const { data: { session } } = await sb.auth.getSession();
-        if (session) {
-            currentSession = session;
-            showApp();
-        } else {
-            showAuthModal();
-        }
+        if (session) { currentSession = session; showApp(); }
+        else showAuthModal();
 
         sb.auth.onAuthStateChange((_event, session) => {
             currentSession = session;
@@ -156,8 +176,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     btnLogin.addEventListener('click', async () => {
-        const email    = authEmail.value.trim();
-        const password = authPassword.value;
+        const email = authEmail.value.trim(), password = authPassword.value;
         if (!email || !password) return;
         clearAuthError();
         btnLogin.disabled = true;
@@ -167,8 +186,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     btnRegister.addEventListener('click', async () => {
-        const email    = authEmail.value.trim();
-        const password = authPassword.value;
+        const email = authEmail.value.trim(), password = authPassword.value;
         if (!email || !password) return;
         clearAuthError();
         btnRegister.disabled = true;
@@ -187,9 +205,6 @@ document.addEventListener('DOMContentLoaded', () => {
         showToast('Sesión cerrada', 'info');
     });
 
-    // ─────────────────────────────────────────────
-    // authFetch — añade JWT en cada request
-    // ─────────────────────────────────────────────
     async function authFetch(url, options = {}) {
         if (!currentSession) throw new Error('No autenticado');
         const headers = { 'Authorization': `Bearer ${currentSession.access_token}` };
@@ -198,8 +213,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ─────────────────────────────────────────────
-    // SISTEMA DE TEMAS
+    // 1. DETECCIÓN DE TEMA DEL SISTEMA
     // ─────────────────────────────────────────────
+    function getDefaultTheme() {
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+            return 'office';
+        }
+        return 'cosmos';
+    }
+
     const themes = ['cosmos', 'hacker', 'office', 'minimal', 'nord', 'sakura', 'sunset', 'contrast'];
     const themeBtns = {};
     themes.forEach(t => {
@@ -216,15 +238,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function cycleTheme() {
-        const current = localStorage.getItem('todo-theme') || 'cosmos';
+        const current = localStorage.getItem('todo-theme') || getDefaultTheme();
         const idx = themes.indexOf(current);
         const next = themes[(idx + 1) % themes.length];
         applyTheme(next);
         showToast(`Tema: ${next.charAt(0).toUpperCase() + next.slice(1)}`, 'info');
     }
 
-    const savedTheme = localStorage.getItem('todo-theme') || 'cosmos';
+    // Aplica tema guardado, o detecta del sistema si es la primera vez
+    const savedTheme = localStorage.getItem('todo-theme') || getDefaultTheme();
     applyTheme(savedTheme);
+
+    // Escucha cambios en la preferencia del sistema en tiempo real
+    window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', (e) => {
+        if (!localStorage.getItem('todo-theme')) {
+            applyTheme(e.matches ? 'office' : 'cosmos');
+        }
+    });
 
     Object.entries(themeBtns).forEach(([theme, btn]) => {
         btn.addEventListener('click', () => applyTheme(theme));
@@ -241,7 +271,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ─────────────────────────────────────────────
-    // MODALES DE ATAJOS Y EXPORTAR
+    // MODALES
     // ─────────────────────────────────────────────
     function openShortcuts() { shortcutsModal.style.display = 'flex'; }
     function closeShortcutsModal() { shortcutsModal.style.display = 'none'; }
@@ -263,9 +293,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const blob = new Blob([content], { type: mimeType });
         const url  = URL.createObjectURL(blob);
         const a    = document.createElement('a');
-        a.href     = url;
-        a.download = filename;
-        a.click();
+        a.href = url; a.download = filename; a.click();
         URL.revokeObjectURL(url);
     }
 
@@ -278,9 +306,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (format === 'csv') {
             const header = 'id,texto,completada,orden';
-            const rows = allTasks.map(t =>
-                `${t.id},"${(t.text || '').replace(/"/g, '""')}",${t.completed},${t.order_index}`
-            );
+            const rows = allTasks.map(t => `${t.id},"${(t.text||'').replace(/"/g,'""')}",${t.completed},${t.order_index}`);
             downloadFile([header, ...rows].join('\n'), `tareas-${now}.csv`, 'text/csv;charset=utf-8;');
         }
         if (format === 'markdown') {
@@ -299,47 +325,35 @@ document.addEventListener('DOMContentLoaded', () => {
     // GAMIFICACIÓN (localStorage)
     // ─────────────────────────────────────────────
     const LEVELS = [
-        { name: 'Bronce',   min: 0    },
-        { name: 'Plata',    min: 100  },
-        { name: 'Oro',      min: 500  },
-        { name: 'Diamante', min: 2000 },
+        { name: 'Bronce', min: 0 }, { name: 'Plata', min: 100 },
+        { name: 'Oro', min: 500 }, { name: 'Diamante', min: 2000 },
     ];
-
     const ACHIEVEMENTS = [
-        { id: 'first',    label: 'Primera tarea',     check: (pts, count) => count >= 1 },
-        { id: 'ten',      label: '10 tareas totales',  check: (pts, count) => count >= 10 },
-        { id: 'fifty',    label: '50 tareas totales',  check: (pts, count) => count >= 50 },
-        { id: 'silver',   label: 'Nivel Plata',        check: (pts)        => pts >= 100 },
-        { id: 'gold',     label: 'Nivel Oro',          check: (pts)        => pts >= 500 },
-        { id: 'diamond',  label: 'Nivel Diamante',     check: (pts)        => pts >= 2000 },
+        { id: 'first',   label: 'Primera tarea',    check: (pts, count) => count >= 1 },
+        { id: 'ten',     label: '10 tareas totales', check: (pts, count) => count >= 10 },
+        { id: 'fifty',   label: '50 tareas totales', check: (pts, count) => count >= 50 },
+        { id: 'silver',  label: 'Nivel Plata',       check: (pts)        => pts >= 100 },
+        { id: 'gold',    label: 'Nivel Oro',         check: (pts)        => pts >= 500 },
+        { id: 'diamond', label: 'Nivel Diamante',    check: (pts)        => pts >= 2000 },
     ];
 
     function getGamification() {
         return JSON.parse(localStorage.getItem('todo-gamification') || '{"points":0,"totalCompleted":0,"achievements":[]}');
     }
-
-    function saveGamification(data) {
-        localStorage.setItem('todo-gamification', JSON.stringify(data));
-    }
+    function saveGamification(data) { localStorage.setItem('todo-gamification', JSON.stringify(data)); }
 
     function awardPoints(points, totalCompleted) {
         const data = getGamification();
-        data.points         += points;
-        data.totalCompleted += totalCompleted;
-
+        data.points += points; data.totalCompleted += totalCompleted;
         const prevLevel = LEVELS.filter(l => l.min <= (data.points - points)).pop();
         const newLevel  = LEVELS.filter(l => l.min <= data.points).pop();
-        if (newLevel.name !== prevLevel.name) {
-            showToast(`Nivel alcanzado: ${newLevel.name}`, 'magic');
-        }
-
+        if (newLevel.name !== prevLevel.name) showToast(`Nivel alcanzado: ${newLevel.name}`, 'magic');
         ACHIEVEMENTS.forEach(ach => {
             if (!data.achievements.includes(ach.id) && ach.check(data.points, data.totalCompleted)) {
                 data.achievements.push(ach.id);
                 setTimeout(() => showToast(`Logro desbloqueado: ${ach.label}`, 'magic'), 500);
             }
         });
-
         saveGamification(data);
     }
 
@@ -354,7 +368,260 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ─────────────────────────────────────────────
-    // BOTÓN LIMPIAR COMPLETADAS (2 clics para confirmar)
+    // 2. CONTADOR DE CARACTERES
+    // ─────────────────────────────────────────────
+    input.addEventListener('input', () => {
+        const len = input.value.length;
+        charCounter.textContent = `${len}/500`;
+        charCounter.className = 'char-counter' + (len >= 450 ? ' warn' : '') + (len >= 490 ? ' danger' : '');
+        updateDatePreview(input.value);
+    });
+
+    // ─────────────────────────────────────────────
+    // 3. ENTRADA DE FECHA EN LENGUAJE NATURAL
+    // ─────────────────────────────────────────────
+    const DAYS_ES = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+
+    function parseNaturalDate(text) {
+        const lower = text.toLowerCase();
+        const now = new Date();
+
+        if (lower.includes('hoy')) return new Date();
+
+        if (lower.includes('pasado mañana') || lower.includes('pasado manana')) {
+            const d = new Date(); d.setDate(d.getDate() + 2); return d;
+        }
+        if (lower.includes('mañana') || lower.includes('manana')) {
+            const d = new Date(); d.setDate(d.getDate() + 1); return d;
+        }
+
+        for (let i = 0; i < DAYS_ES.length; i++) {
+            if (lower.includes(DAYS_ES[i])) {
+                const d = new Date();
+                const diff = (i - d.getDay() + 7) % 7 || 7;
+                d.setDate(d.getDate() + diff);
+                return d;
+            }
+        }
+
+        const enDias = lower.match(/en (\d+) d[íi]as?/);
+        if (enDias) { const d = new Date(); d.setDate(d.getDate() + parseInt(enDias[1])); return d; }
+
+        const enSemanas = lower.match(/en (\d+) semanas?/);
+        if (enSemanas) { const d = new Date(); d.setDate(d.getDate() + parseInt(enSemanas[1]) * 7); return d; }
+
+        return null;
+    }
+
+    function formatDateShort(date) {
+        return date.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
+    }
+
+    function updateDatePreview(text) {
+        const date = parseNaturalDate(text);
+        if (date) {
+            datePreview.textContent = `📅 ${formatDateShort(date)}`;
+            datePreview.style.display = 'inline';
+        } else {
+            datePreview.textContent = '';
+            datePreview.style.display = 'none';
+        }
+    }
+
+    // Guarda/lee fechas naturales por tarea en localStorage
+    function getTaskDates() {
+        return JSON.parse(localStorage.getItem('todo-dates') || '{}');
+    }
+    function saveTaskDate(taskId, date) {
+        const dates = getTaskDates();
+        if (date) dates[taskId] = date.toISOString();
+        else delete dates[taskId];
+        localStorage.setItem('todo-dates', JSON.stringify(dates));
+    }
+    function getTaskDate(taskId) {
+        const dates = getTaskDates();
+        return dates[taskId] ? new Date(dates[taskId]) : null;
+    }
+
+    // ─────────────────────────────────────────────
+    // NOTAS POR TAREA (localStorage)
+    // ─────────────────────────────────────────────
+    function getNote(taskId) {
+        const notes = JSON.parse(localStorage.getItem('todo-notes') || '{}');
+        return notes[taskId] || '';
+    }
+    function saveNote(taskId, text) {
+        const notes = JSON.parse(localStorage.getItem('todo-notes') || '{}');
+        if (text.trim()) notes[taskId] = text;
+        else delete notes[taskId];
+        localStorage.setItem('todo-notes', JSON.stringify(notes));
+    }
+
+    // ─────────────────────────────────────────────
+    // 4. UNDO STACK (Ctrl+Z)
+    // ─────────────────────────────────────────────
+    function pushUndo(action) {
+        undoStack.push(action);
+        if (undoStack.length > 20) undoStack.shift();
+    }
+
+    async function undoLastAction() {
+        const action = undoStack.pop();
+        if (!action) { showToast('Nada que deshacer', 'info'); return; }
+        if (action.type === 'delete') {
+            try {
+                const res = await authFetch(`${API_URL}/tasks`, {
+                    method: 'POST',
+                    body: JSON.stringify({ text: action.task.text })
+                });
+                if (!res.ok) throw new Error();
+                const restored = await res.json();
+                allTasks.unshift(restored);
+                applyFilter();
+                showToast(`Tarea restaurada: "${action.task.text.slice(0, 30)}"`, 'success');
+            } catch {
+                showToast('No se pudo restaurar la tarea', 'error');
+            }
+        }
+    }
+
+    // ─────────────────────────────────────────────
+    // 5. ORDENAR TAREAS
+    // ─────────────────────────────────────────────
+    sortSelect.addEventListener('change', () => {
+        sortOrder = sortSelect.value;
+        applyFilter();
+    });
+
+    function sortTasks(tasks) {
+        if (sortOrder === 'default') return [...tasks];
+        if (sortOrder === 'az') return [...tasks].sort((a, b) => a.text.localeCompare(b.text, 'es'));
+        if (sortOrder === 'za') return [...tasks].sort((a, b) => b.text.localeCompare(a.text, 'es'));
+        if (sortOrder === 'pending') return [...tasks].sort((a, b) => Number(a.completed) - Number(b.completed));
+        if (sortOrder === 'done')    return [...tasks].sort((a, b) => Number(b.completed) - Number(a.completed));
+        return [...tasks];
+    }
+
+    // ─────────────────────────────────────────────
+    // 6. PALETA DE COMANDOS (Ctrl+K)
+    // ─────────────────────────────────────────────
+    const COMMANDS = [
+        { label: 'Nueva tarea', icon: '✏️',  action: () => { closeCommandPalette(); input.focus(); } },
+        { label: 'Buscar tareas', icon: '🔍', action: () => { closeCommandPalette(); searchInput.focus(); } },
+        { label: 'Exportar tareas', icon: '↓', action: () => { closeCommandPalette(); openExportModal(); } },
+        { label: 'Modo enfoque', icon: '👁', action: () => { closeCommandPalette(); toggleFocusMode(); } },
+        { label: 'Atajos de teclado', icon: '⌨️', action: () => { closeCommandPalette(); openShortcuts(); } },
+        { label: 'Tema: Cosmos', icon: '🌌', action: () => { closeCommandPalette(); applyTheme('cosmos'); } },
+        { label: 'Tema: Hacker', icon: '💻', action: () => { closeCommandPalette(); applyTheme('hacker'); } },
+        { label: 'Tema: Office', icon: '📋', action: () => { closeCommandPalette(); applyTheme('office'); } },
+        { label: 'Tema: Dark Minimal', icon: '◼', action: () => { closeCommandPalette(); applyTheme('minimal'); } },
+        { label: 'Tema: Nord', icon: '❄',  action: () => { closeCommandPalette(); applyTheme('nord'); } },
+        { label: 'Tema: Sakura', icon: '🌸', action: () => { closeCommandPalette(); applyTheme('sakura'); } },
+        { label: 'Tema: Sunset', icon: '🌅', action: () => { closeCommandPalette(); applyTheme('sunset'); } },
+        { label: 'Tema: Alto Contraste', icon: '◑', action: () => { closeCommandPalette(); applyTheme('contrast'); } },
+        { label: 'Filtro: Todas', icon: '📋', action: () => { closeCommandPalette(); document.getElementById('filter-all').click(); } },
+        { label: 'Filtro: Pendientes', icon: '⏳', action: () => { closeCommandPalette(); document.getElementById('filter-pending').click(); } },
+        { label: 'Filtro: Completadas', icon: '✅', action: () => { closeCommandPalette(); document.getElementById('filter-done').click(); } },
+        { label: 'Deshacer última acción', icon: '↩️', action: () => { closeCommandPalette(); undoLastAction(); } },
+        { label: 'Cerrar sesión', icon: '🚪', action: () => { closeCommandPalette(); btnLogout.click(); } },
+    ];
+
+    let commandSelectedIndex = -1;
+
+    function openCommandPalette() {
+        commandPalette.style.display = 'flex';
+        commandInput.value = '';
+        commandSelectedIndex = -1;
+        renderCommandResults('');
+        requestAnimationFrame(() => commandInput.focus());
+    }
+
+    function closeCommandPalette() {
+        commandPalette.style.display = 'none';
+        commandInput.value = '';
+    }
+
+    function renderCommandResults(query) {
+        const q = query.toLowerCase().trim();
+
+        // Filtra comandos
+        const matchedCmds = COMMANDS.filter(c => !q || c.label.toLowerCase().includes(q));
+
+        // Filtra tareas si hay query
+        const matchedTasks = q
+            ? allTasks.filter(t => t.text.toLowerCase().includes(q)).slice(0, 5)
+            : [];
+
+        commandResults.innerHTML = '';
+        commandSelectedIndex = -1;
+
+        if (matchedCmds.length === 0 && matchedTasks.length === 0) {
+            commandResults.innerHTML = '<div class="command-empty">Sin resultados</div>';
+            return;
+        }
+
+        if (matchedCmds.length > 0) {
+            const section = document.createElement('div');
+            section.className = 'command-section-label';
+            section.textContent = 'Comandos';
+            commandResults.appendChild(section);
+
+            matchedCmds.forEach((cmd, i) => {
+                const item = document.createElement('div');
+                item.className = 'command-item';
+                item.innerHTML = `<span class="command-icon">${cmd.icon}</span><span>${cmd.label}</span>`;
+                item.addEventListener('click', cmd.action);
+                commandResults.appendChild(item);
+            });
+        }
+
+        if (matchedTasks.length > 0) {
+            const section = document.createElement('div');
+            section.className = 'command-section-label';
+            section.textContent = 'Tareas';
+            commandResults.appendChild(section);
+
+            matchedTasks.forEach(task => {
+                const item = document.createElement('div');
+                item.className = 'command-item';
+                item.innerHTML = `<span class="command-icon">${task.completed ? '✅' : '⬜'}</span><span class="command-task-text">${escapeHTML(task.text)}</span>`;
+                item.addEventListener('click', () => {
+                    closeCommandPalette();
+                    searchInput.value = task.text.slice(0, 20);
+                    searchQuery = task.text.slice(0, 20).toLowerCase();
+                    applyFilter();
+                });
+                commandResults.appendChild(item);
+            });
+        }
+    }
+
+    commandInput.addEventListener('input', () => renderCommandResults(commandInput.value));
+
+    commandInput.addEventListener('keydown', (e) => {
+        const items = commandResults.querySelectorAll('.command-item');
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            commandSelectedIndex = Math.min(commandSelectedIndex + 1, items.length - 1);
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            commandSelectedIndex = Math.max(commandSelectedIndex - 1, 0);
+        } else if (e.key === 'Enter' && commandSelectedIndex >= 0) {
+            e.preventDefault();
+            items[commandSelectedIndex]?.click();
+            return;
+        } else if (e.key === 'Escape') {
+            closeCommandPalette();
+            return;
+        }
+        items.forEach((item, i) => item.classList.toggle('selected', i === commandSelectedIndex));
+        if (commandSelectedIndex >= 0) items[commandSelectedIndex]?.scrollIntoView({ block: 'nearest' });
+    });
+
+    commandPalette.addEventListener('click', (e) => { if (e.target === commandPalette) closeCommandPalette(); });
+
+    // ─────────────────────────────────────────────
+    // BOTÓN LIMPIAR COMPLETADAS
     // ─────────────────────────────────────────────
     clearBtn.addEventListener('click', async () => {
         if (!clearBtn.classList.contains('confirming')) {
@@ -375,9 +642,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function clearCompleted() {
         const completed = allTasks.filter(t => t.completed);
         const count = completed.length;
-        await Promise.all(
-            completed.map(t => authFetch(`${API_URL}/tasks/${t.id}`, { method: 'DELETE' }))
-        );
+        await Promise.all(completed.map(t => authFetch(`${API_URL}/tasks/${t.id}`, { method: 'DELETE' })));
         await loadTasks();
         showToast(`¡Limpieza completa! ${count} tareas borradas 🧹`, 'magic');
     }
@@ -387,11 +652,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // ─────────────────────────────────────────────
     toggleAllBtn.addEventListener('click', async () => {
         if (allTasks.length === 0) return;
-
-        const allCompleted  = allTasks.every(t => t.completed);
-        const newState      = !allCompleted;
+        const allCompleted = allTasks.every(t => t.completed);
+        const newState = !allCompleted;
         const tasksToUpdate = allTasks.filter(t => t.completed !== newState);
-
         if (tasksToUpdate.length === 0) return;
 
         tasksToUpdate.forEach(t => t.completed = newState);
@@ -408,8 +671,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 )
             );
             showToast(newState ? '¡Todas completadas! 🎉' : 'Todas pendientes de nuevo', 'magic');
-        } catch (err) {
-            console.error('Error al hacer toggle all:', err);
+        } catch {
             showToast('Error de conexión', 'error');
             await loadTasks();
         } finally {
@@ -426,18 +688,29 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     document.addEventListener('keydown', (e) => {
-        // Cerrar modales con Escape
+        // Ctrl+K — paleta de comandos
+        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+            e.preventDefault();
+            if (commandPalette.style.display !== 'none') closeCommandPalette();
+            else openCommandPalette();
+            return;
+        }
+
+        // Ctrl+Z — deshacer
+        if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !isTyping()) {
+            e.preventDefault();
+            undoLastAction();
+            return;
+        }
+
         if (e.key === 'Escape') {
+            if (commandPalette.style.display !== 'none') { closeCommandPalette(); return; }
             if (shortcutsModal.style.display !== 'none') { closeShortcutsModal(); return; }
             if (exportModal.style.display !== 'none') { closeExportModal(); return; }
             if (document.activeElement === input || document.activeElement === searchInput) {
                 document.activeElement.blur();
             }
-            if (searchInput.value !== '') {
-                searchInput.value = '';
-                searchQuery = '';
-                applyFilter();
-            }
+            if (searchInput.value !== '') { searchInput.value = ''; searchQuery = ''; applyFilter(); }
             return;
         }
 
@@ -479,10 +752,9 @@ document.addEventListener('DOMContentLoaded', () => {
         let filtered = allTasks;
         if (activeFilter === 'pending') filtered = allTasks.filter(t => !t.completed);
         if (activeFilter === 'done')    filtered = allTasks.filter(t => t.completed);
+        if (searchQuery) filtered = filtered.filter(t => t.text.toLowerCase().includes(searchQuery));
 
-        if (searchQuery) {
-            filtered = filtered.filter(t => t.text.toLowerCase().includes(searchQuery));
-        }
+        filtered = sortTasks(filtered);
 
         todoList.innerHTML = '';
         if (filtered.length === 0) {
@@ -493,7 +765,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateCount();
 
         if (window.todoSortable) {
-            const canSort = activeFilter === 'all' && !searchQuery;
+            const canSort = activeFilter === 'all' && !searchQuery && sortOrder === 'default';
             window.todoSortable.option('disabled', !canSort);
         }
     }
@@ -508,23 +780,18 @@ document.addEventListener('DOMContentLoaded', () => {
         dragClass: 'sortable-drag',
         onEnd: async function (evt) {
             if (evt.oldIndex === evt.newIndex) return;
-
             const movedItem = allTasks.splice(evt.oldIndex, 1)[0];
             allTasks.splice(evt.newIndex, 0, movedItem);
-
             showToast('Guardando nuevo orden...', 'info');
-
             const tasksToUpdate = allTasks.map((t, index) => ({ id: t.id, order_index: index }));
-
             try {
                 const res = await authFetch(`${API_URL}/tasks/reorder`, {
                     method: 'PUT',
                     body: JSON.stringify({ tasks: tasksToUpdate })
                 });
-                if (!res.ok) throw new Error('Error al guardar el orden');
+                if (!res.ok) throw new Error();
                 showToast('¡Orden guardado en la nube! ↕️', 'success');
-            } catch (err) {
-                console.error('Error reordenando:', err);
+            } catch {
                 showToast('Error de conexión al guardar el orden', 'error');
                 await loadTasks();
             }
@@ -535,8 +802,14 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         const text = input.value.trim();
         if (text !== '') {
-            await addTodo(text);
+            const detectedDate = parseNaturalDate(text);
+            const taskId = await addTodo(text);
+            if (detectedDate && taskId) saveTaskDate(taskId, detectedDate);
             input.value = '';
+            charCounter.textContent = '0/500';
+            charCounter.className = 'char-counter';
+            datePreview.textContent = '';
+            datePreview.style.display = 'none';
         }
     });
 
@@ -552,21 +825,20 @@ document.addEventListener('DOMContentLoaded', () => {
     // ─────────────────────────────────────────────
     // FUNCIONES DE LA API
     // ─────────────────────────────────────────────
-
     async function loadTasks() {
         try {
             showLoading();
             const res = await authFetch(`${API_URL}/tasks`);
-            if (!res.ok) throw new Error('Error al cargar tareas');
+            if (!res.ok) throw new Error();
             allTasks = await res.json();
             applyFilter();
-        } catch (err) {
-            console.error('Error cargando tareas:', err);
+        } catch {
             showToast('No se pudo conectar al servidor', 'error');
             todoList.innerHTML = `<li class="empty-msg" style="color:var(--danger)">🚨 Error de conexión</li>`;
         }
     }
 
+    // Devuelve el ID de la tarea creada para asociar fecha
     async function addTodo(text) {
         showToast(`Tarea añadida: "${text}"`, 'success');
         logActivity('crear', text);
@@ -576,7 +848,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 method: 'POST',
                 body: JSON.stringify({ text })
             });
-            if (!res.ok) throw new Error('Error al crear tarea');
+            if (!res.ok) throw new Error();
             const newTask = await res.json();
             allTasks.unshift(newTask);
 
@@ -591,9 +863,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 todoList.prepend(li);
             }
             updateCount();
-        } catch (err) {
-            console.error('Error creando tarea:', err);
+            return newTask.id;
+        } catch {
             showToast('No se pudo guardar la tarea', 'error');
+            return null;
         }
     }
 
@@ -614,14 +887,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 method: 'PUT',
                 body: JSON.stringify({ completed: isNowCompleted })
             });
-            if (!res.ok) throw new Error('Error al actualizar tarea');
+            if (!res.ok) throw new Error();
 
             if (isNowCompleted) {
                 const taskText = allTasks[taskIndex] ? allTasks[taskIndex].text : '';
                 logActivity('completar', taskText);
                 awardPoints(2, 1);
                 completedStreak++;
-
                 const pending = allTasks.filter(t => !t.completed).length;
                 if (pending === 0 && allTasks.length > 0) {
                     showToast('¡Día libre! Todas completadas 🎉', 'magic');
@@ -635,11 +907,10 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 completedStreak = 0;
             }
-        } catch (err) {
+        } catch {
             if (taskIndex !== -1) allTasks[taskIndex].completed = !isNowCompleted;
             element.classList.toggle('completed');
             updateCount();
-            console.error('Error actualizando tarea:', err);
             showToast('Error de conexión', 'error');
         } finally {
             element.dataset.saving = 'false';
@@ -653,16 +924,29 @@ document.addEventListener('DOMContentLoaded', () => {
         allTasks = allTasks.filter(t => t.id !== id);
         element.style.animation = 'fadeOut 0.3s ease forwards';
         if (backup) logActivity('eliminar', backup.text);
-        showToast('Tarea eliminada', 'warning');
         setTimeout(() => applyFilter(), 300);
+
         try {
             const res = await authFetch(`${API_URL}/tasks/${id}`, { method: 'DELETE' });
-            if (!res.ok) throw new Error('Error al eliminar tarea');
-        } catch (err) {
+            if (!res.ok) throw new Error();
+            if (backup) pushUndo({ type: 'delete', task: backup });
+            showToast(
+                `Tarea eliminada`,
+                'warning',
+                'Deshacer',
+                () => undoLastAction()
+            );
+        } catch {
             if (backup) { allTasks.push(backup); applyFilter(); }
-            console.error('Error eliminando tarea:', err);
             showToast('No se pudo eliminar', 'error');
         }
+    }
+
+    async function duplicateTodo(id) {
+        const original = allTasks.find(t => t.id === id);
+        if (!original) return;
+        await addTodo(original.text);
+        showToast('Tarea duplicada', 'info');
     }
 
     async function updateTaskText(id, newText, element) {
@@ -671,11 +955,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 method: 'PATCH',
                 body: JSON.stringify({ text: newText })
             });
-            if (!res.ok) throw new Error('Error al actualizar tarea');
+            if (!res.ok) throw new Error();
             const updated = await res.json();
             element.querySelector('.todo-text').textContent = updated.text;
-        } catch (err) {
-            console.error('Error actualizando texto:', err);
+        } catch {
             showToast('Error al guardar el texto', 'error');
         }
     }
@@ -683,34 +966,106 @@ document.addEventListener('DOMContentLoaded', () => {
     // ─────────────────────────────────────────────
     // RENDERIZADO
     // ─────────────────────────────────────────────
+    function renderDueBadge(taskId) {
+        const date = getTaskDate(taskId);
+        if (!date) return '';
+        const now = new Date();
+        const diff = Math.floor((date - now) / (1000 * 60 * 60 * 24));
+        const label = diff < 0
+            ? 'Vencida'
+            : diff === 0
+                ? 'Hoy'
+                : diff <= 7
+                    ? formatDateShort(date)
+                    : formatDateShort(date);
+        const cls = diff < 0 ? 'overdue' : diff === 0 ? 'today' : 'upcoming';
+        return `<span class="due-badge due-badge--${cls}">${label}</span>`;
+    }
 
     function renderTodoItem(todo) {
         const li = document.createElement('li');
         li.className = `todo-item ${todo.completed ? 'completed' : ''}`;
         li.dataset.id = todo.id;
 
+        const note = getNote(todo.id);
+        const dueBadge = renderDueBadge(todo.id);
+
         li.innerHTML = `
             <div class="drag-handle" title="Arrastrar para mover">⋮⋮</div>
             <div class="checkbox" role="button" aria-label="Marcar como completado" tabindex="0"></div>
-            <span class="todo-text">${escapeHTML(todo.text)}</span>
-            <button class="delete-btn" aria-label="Eliminar tarea">
-                <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="3 6 5 6 21 6"></polyline>
-                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                </svg>
-            </button>
+            <div class="todo-main">
+                <div class="todo-top-row">
+                    <span class="todo-text">${escapeHTML(todo.text)}</span>
+                    ${dueBadge}
+                </div>
+                <div class="todo-note-area ${note ? 'has-note' : ''}">
+                    <button class="note-toggle-btn" title="Notas" aria-label="Mostrar/ocultar notas">
+                        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                        ${note ? '<span class="note-dot"></span>' : ''}
+                    </button>
+                    <div class="note-panel" style="display:none;">
+                        <textarea class="note-textarea" placeholder="Escribe una nota para esta tarea..." rows="3">${escapeHTML(note)}</textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="task-actions">
+                <button class="action-btn duplicate-btn" title="Duplicar tarea" aria-label="Duplicar tarea">
+                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                </button>
+                <button class="delete-btn" aria-label="Eliminar tarea">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                </button>
+            </div>
         `;
 
-        const checkbox = li.querySelector('.checkbox');
-        const deleteBtn = li.querySelector('.delete-btn');
-        const textSpan  = li.querySelector('.todo-text');
+        const checkbox    = li.querySelector('.checkbox');
+        const deleteBtn   = li.querySelector('.delete-btn');
+        const duplicateBtn = li.querySelector('.duplicate-btn');
+        const textSpan    = li.querySelector('.todo-text');
+        const noteToggle  = li.querySelector('.note-toggle-btn');
+        const notePanel   = li.querySelector('.note-panel');
+        const noteTextarea = li.querySelector('.note-textarea');
 
         checkbox.addEventListener('click', () => toggleTodo(todo.id, li));
         deleteBtn.addEventListener('click', () => deleteTodo(todo.id, li));
+        duplicateBtn.addEventListener('click', () => duplicateTodo(todo.id));
 
+        // Toggle notas
+        noteToggle.addEventListener('click', () => {
+            const isOpen = notePanel.style.display !== 'none';
+            notePanel.style.display = isOpen ? 'none' : 'block';
+            if (!isOpen) {
+                noteTextarea.focus();
+                noteTextarea.style.height = 'auto';
+                noteTextarea.style.height = noteTextarea.scrollHeight + 'px';
+            }
+        });
+
+        // Auto-resize textarea
+        noteTextarea.addEventListener('input', () => {
+            noteTextarea.style.height = 'auto';
+            noteTextarea.style.height = noteTextarea.scrollHeight + 'px';
+        });
+
+        // Guardar nota al perder foco
+        noteTextarea.addEventListener('blur', () => {
+            saveNote(todo.id, noteTextarea.value);
+            const hasNote = !!noteTextarea.value.trim();
+            const noteArea = li.querySelector('.todo-note-area');
+            noteArea.classList.toggle('has-note', hasNote);
+            const dot = noteToggle.querySelector('.note-dot');
+            if (hasNote && !dot) {
+                const newDot = document.createElement('span');
+                newDot.className = 'note-dot';
+                noteToggle.appendChild(newDot);
+            } else if (!hasNote && dot) {
+                dot.remove();
+            }
+        });
+
+        // Edición inline doble clic
         textSpan.addEventListener('dblclick', () => {
             if (li.classList.contains('completed')) return;
-
             const originalText = textSpan.textContent;
             const editInput = document.createElement('input');
             editInput.type = 'text';
@@ -726,6 +1081,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 editInput.replaceWith(textSpan);
                 if (newText && newText !== originalText) {
                     textSpan.textContent = newText;
+                    const taskInState = allTasks.find(t => t.id === todo.id);
+                    if (taskInState) taskInState.text = newText;
                     await updateTaskText(todo.id, newText, li);
                 } else {
                     textSpan.textContent = originalText;
@@ -757,29 +1114,24 @@ document.addEventListener('DOMContentLoaded', () => {
         else badgePending.classList.remove('urgent');
 
         document.title = pending > 0 ? `(${pending}) Infinity To-Do` : 'Infinity To-Do';
-
         progressBar.style.width   = `${pct}%`;
         progressLabel.textContent = `${done} de ${total} completadas`;
         progressPct.textContent   = `${pct}%`;
 
-        if (pct === 100)     progressPct.style.color = 'var(--success)';
-        else if (pct >= 50)  progressPct.style.color = 'var(--accent)';
-        else                 progressPct.style.color = 'var(--text-muted)';
+        if (pct === 100) progressPct.style.color = 'var(--success)';
+        else if (pct >= 50) progressPct.style.color = 'var(--accent)';
+        else progressPct.style.color = 'var(--text-muted)';
 
         listControls.style.display = total > 0 ? 'flex' : 'none';
-        toggleAllBtn.innerHTML = (total > 0 && done === total)
-            ? '🟩 Desmarcar todas'
-            : '☑️ Marcar todas';
+        toggleAllBtn.innerHTML = (total > 0 && done === total) ? '🟩 Desmarcar todas' : '☑️ Marcar todas';
     }
 
     function animateBadgeUpdate(element, newValue) {
         if (!element) return;
         const currentValue = parseInt(element.textContent) || 0;
         element.textContent = newValue;
-
         if (newValue === 0) element.classList.add('zero');
         else element.classList.remove('zero');
-
         if (currentValue !== newValue) {
             element.classList.remove('pop');
             void element.offsetWidth;
@@ -796,7 +1148,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function escapeHTML(str) {
-        return str.replace(/[&<>'"]/g, tag => ({
+        return String(str).replace(/[&<>'"]/g, tag => ({
             '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
         }[tag] || tag));
     }

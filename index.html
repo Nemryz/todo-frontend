@@ -45,6 +45,8 @@
                 <li><kbd>2</kbd> <span>Filtro: Pendientes</span></li>
                 <li><kbd>3</kbd> <span>Filtro: Completadas</span></li>
                 <li><kbd>?</kbd> <span>Mostrar este panel</span></li>
+                <li><kbd>Ctrl K</kbd> <span>Paleta de comandos</span></li>
+                <li><kbd>Ctrl Z</kbd> <span>Deshacer eliminación</span></li>
                 <li><kbd>Esc</kbd> <span>Limpiar búsqueda / cerrar</span></li>
             </ul>
         </div>
@@ -62,6 +64,18 @@
                 <button id="export-csv" class="auth-btn secondary">CSV</button>
                 <button id="export-md" class="auth-btn secondary">Markdown</button>
             </div>
+        </div>
+    </div>
+
+    <!-- ─── PALETA DE COMANDOS (Ctrl+K) ─── -->
+    <div id="command-palette" class="command-palette" style="display:none;" role="dialog" aria-modal="true" aria-label="Paleta de comandos">
+        <div class="command-palette-card">
+            <div class="command-search-wrapper">
+                <span class="command-search-icon">⌘</span>
+                <input id="command-input" type="text" placeholder="Buscar comandos o tareas..." autocomplete="off" spellcheck="false">
+                <kbd class="command-esc-hint">Esc</kbd>
+            </div>
+            <div id="command-results" class="command-results"></div>
         </div>
     </div>
 
@@ -87,7 +101,13 @@
 
             <section class="add-section glass-panel">
                 <form id="todo-form" class="todo-form">
-                    <input type="text" id="todo-input" placeholder="¿Qué necesitas hacer hoy?" autocomplete="off" required>
+                    <div class="input-wrapper">
+                        <input type="text" id="todo-input" placeholder="¿Qué necesitas hacer hoy? (Ej: reunión mañana)" autocomplete="off" maxlength="500" required>
+                        <div class="input-meta">
+                            <span id="date-preview" class="date-preview"></span>
+                            <span id="char-counter" class="char-counter">0/500</span>
+                        </div>
+                    </div>
                     <button type="submit" id="add-btn" class="glow-btn" aria-label="Añadir tarea">
                         <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                     </button>
@@ -100,7 +120,16 @@
                         <h2>Mis Tareas</h2>
                         <span id="task-count" class="badge">0</span>
                     </div>
-                    <input type="text" id="search-input" class="search-input" placeholder="🔍 Buscar..." autocomplete="off">
+                    <div class="list-header-controls">
+                        <select id="sort-select" class="sort-select" title="Ordenar por">
+                            <option value="default">Orden manual</option>
+                            <option value="az">A → Z</option>
+                            <option value="za">Z → A</option>
+                            <option value="pending">Pendientes primero</option>
+                            <option value="done">Completadas primero</option>
+                        </select>
+                        <input type="text" id="search-input" class="search-input" placeholder="🔍 Buscar..." autocomplete="off">
+                    </div>
                 </div>
 
                 <div class="filter-bar">
