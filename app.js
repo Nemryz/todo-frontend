@@ -49,15 +49,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     const btnCompact    = document.getElementById('btn-compact');
 
     // Auth
-    const authModal    = document.getElementById('auth-modal');
-    const authEmail    = document.getElementById('auth-email');
-    const authPassword = document.getElementById('auth-password');
-    const authError    = document.getElementById('auth-error');
-    const btnLogin     = document.getElementById('btn-login');
-    const btnRegister  = document.getElementById('btn-register');
-    const btnMagic     = document.getElementById('btn-magic');
-    const btnLogout    = document.getElementById('btn-logout');
-    const appDiv       = document.getElementById('app');
+    const authModal     = document.getElementById('auth-modal');
+    const authEmail     = document.getElementById('auth-email');
+    const authPassword  = document.getElementById('auth-password');
+    const authError     = document.getElementById('auth-error');
+    const btnLogin      = document.getElementById('btn-login');
+    const btnRegister   = document.getElementById('btn-register');
+    const btnMagic      = document.getElementById('btn-magic');
+    const btnForgot     = document.getElementById('btn-forgot');
+    const btnLogout     = document.getElementById('btn-logout');
+    const appDiv        = document.getElementById('app');
+
+    // Reset password modal
+    const resetModal      = document.getElementById('reset-modal');
+    const resetPasswordIn = document.getElementById('reset-password');
+    const resetConfirmIn  = document.getElementById('reset-confirm');
+    const btnResetSubmit  = document.getElementById('btn-reset-submit');
+    const resetError      = document.getElementById('reset-error');
+
+    // Import
+    const importJsonBtn = document.getElementById('import-json-btn');
+    const importFile    = document.getElementById('import-file');
 
     // Modales
     const shortcutsModal  = document.getElementById('shortcuts-modal');
@@ -212,6 +224,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const { data: { session } } = await sb.auth.getSession();
         if (session) { currentSession = session; showApp(); } else showAuthModal();
         sb.auth.onAuthStateChange((_e, session) => {
+            if (_e === 'PASSWORD_RECOVERY') { openResetModal(); return; }
             currentSession = session;
             if (session) showApp(); else showAuthModal();
         });
@@ -288,6 +301,39 @@ document.addEventListener('DOMContentLoaded', async () => {
         authError.textContent = 'Enlace enviado. Revisa tu correo para acceder.';
     });
 
+    if (btnForgot) btnForgot.addEventListener('click', async () => {
+        const email = authEmail.value.trim();
+        if (!email) { showAuthError({ bold: 'Escribe tu correo primero.', italic: 'Se enviará un enlace de recuperación.' }); return; }
+        clearAuthError(); btnForgot.disabled = true;
+        const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin });
+        btnForgot.disabled = false;
+        if (error) { showAuthError(translateAuthError(error)); return; }
+        authError.style.color = 'var(--success)';
+        authError.textContent = 'Enlace enviado. Revisa tu correo para restablecer la contraseña.';
+    });
+
+    function openResetModal() {
+        authModal.style.display = 'none';
+        resetModal.style.display = 'flex';
+        resetPasswordIn.value = '';
+        resetConfirmIn.value = '';
+        resetError.textContent = '';
+    }
+
+    if (btnResetSubmit) btnResetSubmit.addEventListener('click', async () => {
+        const pass = resetPasswordIn.value;
+        const confirm = resetConfirmIn.value;
+        if (!pass) { resetError.textContent = 'Escribe una contraseña nueva.'; return; }
+        if (pass.length < 6) { resetError.textContent = 'La contraseña debe tener al menos 6 caracteres.'; return; }
+        if (pass !== confirm) { resetError.textContent = 'Las contraseñas no coinciden.'; return; }
+        resetError.textContent = ''; btnResetSubmit.disabled = true;
+        const { error } = await sb.auth.updateUser({ password: pass });
+        btnResetSubmit.disabled = false;
+        if (error) { resetError.style.color = 'var(--danger)'; resetError.textContent = 'No se pudo actualizar la contraseña. Intenta de nuevo.'; return; }
+        resetModal.style.display = 'none';
+        showToast('Contraseña actualizada correctamente', 'success');
+    });
+
     btnLogout.addEventListener('click', async () => { await sb.auth.signOut(); showToast('Sesión cerrada', 'info'); });
 
     async function authFetch(url, options = {}) {
@@ -301,7 +347,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 1. DETECCIÓN DE TEMA DEL SISTEMA
     // ─────────────────────────────────────────────
     function getDefaultTheme() {
-        return (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'office' : 'cosmos';
+        return 'hacker';
     }
 
     const themes = ['cosmos','hacker','office','minimal','nord','sakura','sunset','contrast'];
@@ -448,6 +494,34 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (exportCsv)  exportCsv.addEventListener('click',  () => exportTasks('csv'));
     if (exportMd)   exportMd.addEventListener('click',   () => exportTasks('markdown'));
 
+    if (importJsonBtn) importJsonBtn.addEventListener('click', () => importFile && importFile.click());
+    if (importFile) importFile.addEventListener('change', () => {
+        if (importFile.files[0]) { importTasksFromJSON(importFile.files[0]); importFile.value = ''; }
+    });
+
+    async function importTasksFromJSON(file) {
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const data = JSON.parse(e.target.result);
+                if (!Array.isArray(data)) throw new Error('formato');
+                const texts = data.map(t => t.text).filter(Boolean);
+                if (!texts.length) { showToast('No hay tareas válidas en el archivo', 'warning'); return; }
+                let created = 0;
+                for (const text of texts) {
+                    try {
+                        const res = await authFetch(`${API_URL}/tasks`, { method: 'POST', body: JSON.stringify({ text }) });
+                        if (res.ok) { const t = await res.json(); allTasks.unshift(t); created++; }
+                    } catch { /* continuar con las demás */ }
+                }
+                applyFilter();
+                closeExportModal();
+                showToast(`${created} tarea(s) importadas`, 'success');
+            } catch { showToast('Archivo JSON inválido o sin tareas', 'error'); }
+        };
+        reader.readAsText(file);
+    }
+
     // ─────────────────────────────────────────────
     // GAMIFICACIÓN
     // ─────────────────────────────────────────────
@@ -564,6 +638,79 @@ document.addEventListener('DOMContentLoaded', async () => {
         const notes = JSON.parse(localStorage.getItem('todo-notes') || '{}');
         if (text.trim()) notes[taskId] = text; else delete notes[taskId];
         localStorage.setItem('todo-notes', JSON.stringify(notes));
+    }
+
+    // ─────────────────────────────────────────────
+    // SUBTAREAS
+    // ─────────────────────────────────────────────
+    function getSubtasks(taskId) {
+        return JSON.parse(localStorage.getItem(`todo-subtasks-${taskId}`) || '[]');
+    }
+    function saveSubtasks(taskId, subtasks) {
+        if (subtasks.length) localStorage.setItem(`todo-subtasks-${taskId}`, JSON.stringify(subtasks));
+        else localStorage.removeItem(`todo-subtasks-${taskId}`);
+    }
+    function buildSubtaskPanel(taskId) {
+        const panel = document.createElement('div');
+        panel.className = 'subtask-panel';
+
+        function refresh() {
+            panel.innerHTML = '';
+            const subtasks = getSubtasks(taskId);
+            subtasks.forEach((st, i) => {
+                const row = document.createElement('div');
+                row.className = 'subtask-row';
+                row.innerHTML = `
+                    <button class="subtask-check${st.done ? ' done' : ''}" title="${st.done ? 'Marcar pendiente' : 'Completar'}"></button>
+                    <span class="subtask-text${st.done ? ' done' : ''}">${escapeHTML(st.text)}</span>
+                    <button class="subtask-del" title="Eliminar">✕</button>
+                `;
+                row.querySelector('.subtask-check').addEventListener('click', () => {
+                    const list = getSubtasks(taskId);
+                    list[i].done = !list[i].done;
+                    saveSubtasks(taskId, list);
+                    refresh();
+                });
+                row.querySelector('.subtask-del').addEventListener('click', () => {
+                    const list = getSubtasks(taskId);
+                    list.splice(i, 1);
+                    saveSubtasks(taskId, list);
+                    refresh();
+                });
+                panel.appendChild(row);
+            });
+            const addRow = document.createElement('div');
+            addRow.className = 'subtask-add-row';
+            addRow.innerHTML = `<input class="subtask-input" type="text" placeholder="Nueva subtarea..." maxlength="200">`;
+            const inp = addRow.querySelector('.subtask-input');
+            inp.addEventListener('keydown', (e) => {
+                if (e.key !== 'Enter') return;
+                const text = inp.value.trim();
+                if (!text) return;
+                const list = getSubtasks(taskId);
+                list.push({ id: Date.now(), text, done: false });
+                saveSubtasks(taskId, list);
+                refresh();
+            });
+            panel.appendChild(addRow);
+        }
+
+        refresh();
+        return panel;
+    }
+
+    // ─────────────────────────────────────────────
+    // TAREAS RECURRENTES
+    // ─────────────────────────────────────────────
+    const RECURRENCE_OPTS = ['none', 'daily', 'weekly', 'monthly'];
+    const RECURRENCE_LABELS = { none: 'Sin recurrencia', daily: 'Diaria', weekly: 'Semanal', monthly: 'Mensual' };
+
+    function getRecurrences() { return JSON.parse(localStorage.getItem('todo-recurrence') || '{}'); }
+    function getRecurrence(taskId) { return getRecurrences()[taskId] || 'none'; }
+    function setRecurrence(taskId, value) {
+        const data = getRecurrences();
+        if (value === 'none') delete data[taskId]; else data[taskId] = value;
+        localStorage.setItem('todo-recurrence', JSON.stringify(data));
     }
 
     // ─────────────────────────────────────────────
@@ -989,7 +1136,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!filtered.length) {
             todoList.innerHTML = `<li class="empty-msg">✨ No hay tareas aquí</li>`;
         } else {
-            filtered.forEach(todo => todoList.appendChild(renderTodoItem(todo)));
+            filtered.forEach((todo, i) => {
+                const li = renderTodoItem(todo);
+                li.style.animationDelay = `${Math.min(i * 35, 350)}ms`;
+                todoList.appendChild(li);
+            });
         }
         updateCount();
         if (window.todoSortable) {
@@ -1108,6 +1259,17 @@ document.addEventListener('DOMContentLoaded', async () => {
                 else if (completedStreak === 3) { showToast('¡Estás on fire! 🔥', 'fire'); completedStreak = 0; }
                 else showToast('¡Una menos!', 'success');
                 if (statsVisible) renderStats();
+                const rec = getRecurrence(id);
+                if (rec !== 'none') {
+                    const taskText = allTasks[idx]?.text || '';
+                    setTimeout(async () => {
+                        const newId = await addTodo(taskText);
+                        if (newId) {
+                            setRecurrence(newId, rec);
+                            showToast(`Tarea recreada (${RECURRENCE_LABELS[rec]})`, 'info');
+                        }
+                    }, 1200);
+                }
             } else { completedStreak = 0; }
         } catch {
             if (idx !== -1) allTasks[idx].completed = !isNowCompleted;
@@ -1174,14 +1336,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         li.className = `todo-item ${todo.completed ? 'completed' : ''}`;
         li.dataset.id = todo.id;
 
-        const note      = getNote(todo.id);
-        const dueBadge  = renderDueBadge(todo.id);
-        const priority  = getPriority(todo.id);
-        const priMeta   = PRIORITY_META[priority];
-        const tags      = parseTags(todo.text);
-        const tagChips  = tags.map(t =>
+        const note        = getNote(todo.id);
+        const dueBadge    = renderDueBadge(todo.id);
+        const priority    = getPriority(todo.id);
+        const priMeta     = PRIORITY_META[priority];
+        const tags        = parseTags(todo.text);
+        const tagChips    = tags.map(t =>
             `<span class="tag-chip${t === activeTag ? ' active' : ''}" data-tag="${t}">${t}</span>`
         ).join('');
+        const recurrence  = getRecurrence(todo.id);
+        const recBadge    = recurrence !== 'none'
+            ? `<span class="recurrence-badge" title="Recurrencia: ${RECURRENCE_LABELS[recurrence]}">↻ ${RECURRENCE_LABELS[recurrence]}</span>` : '';
 
         li.innerHTML = `
             <div class="drag-handle" title="Arrastrar">⋮⋮</div>
@@ -1194,15 +1359,28 @@ document.addEventListener('DOMContentLoaded', async () => {
                     ${dueBadge}
                 </div>
                 ${tagChips ? `<div class="tag-row">${tagChips}</div>` : ''}
-                <div class="todo-note-area ${note ? 'has-note' : ''}">
-                    <button class="note-toggle-btn" title="Notas" aria-label="Notas">
-                        <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-                        ${note ? '<span class="note-dot"></span>' : ''}
-                    </button>
-                    <div class="note-panel" style="display:none;">
-                        <textarea class="note-textarea" placeholder="Escribe una nota..." rows="3">${escapeHTML(note)}</textarea>
+                <div class="todo-meta-row">
+                    <div class="todo-note-area ${note ? 'has-note' : ''}">
+                        <button class="note-toggle-btn" title="Notas" aria-label="Notas">
+                            <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                            ${note ? '<span class="note-dot"></span>' : ''}
+                        </button>
                     </div>
+                    <button class="subtask-toggle-btn" title="Subtareas" aria-label="Subtareas">
+                        <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                    </button>
+                    <select class="recurrence-select" title="Recurrencia" aria-label="Recurrencia">
+                        <option value="none"${recurrence === 'none' ? ' selected' : ''}>Sin recurrencia</option>
+                        <option value="daily"${recurrence === 'daily' ? ' selected' : ''}>Diaria</option>
+                        <option value="weekly"${recurrence === 'weekly' ? ' selected' : ''}>Semanal</option>
+                        <option value="monthly"${recurrence === 'monthly' ? ' selected' : ''}>Mensual</option>
+                    </select>
+                    ${recBadge}
                 </div>
+                <div class="note-panel" style="display:none;">
+                    <textarea class="note-textarea" placeholder="Escribe una nota..." rows="3">${escapeHTML(note)}</textarea>
+                </div>
+                <div class="subtask-container" style="display:none;"></div>
             </div>
             <div class="task-actions">
                 <button class="action-btn duplicate-btn" title="Duplicar" aria-label="Duplicar">
@@ -1214,19 +1392,35 @@ document.addEventListener('DOMContentLoaded', async () => {
             </div>
         `;
 
-        const checkbox    = li.querySelector('.checkbox');
-        const deleteBtn   = li.querySelector('.delete-btn');
-        const dupBtn      = li.querySelector('.duplicate-btn');
-        const textSpan    = li.querySelector('.todo-text');
-        const noteToggle  = li.querySelector('.note-toggle-btn');
-        const notePanel   = li.querySelector('.note-panel');
-        const noteTA      = li.querySelector('.note-textarea');
-        const priorityDot = li.querySelector('.priority-dot');
+        const checkbox       = li.querySelector('.checkbox');
+        const deleteBtn      = li.querySelector('.delete-btn');
+        const dupBtn         = li.querySelector('.duplicate-btn');
+        const textSpan       = li.querySelector('.todo-text');
+        const noteToggle     = li.querySelector('.note-toggle-btn');
+        const notePanel      = li.querySelector('.note-panel');
+        const noteTA         = li.querySelector('.note-textarea');
+        const priorityDot    = li.querySelector('.priority-dot');
+        const subtaskToggle  = li.querySelector('.subtask-toggle-btn');
+        const subtaskCont    = li.querySelector('.subtask-container');
+        const recurrenceSel  = li.querySelector('.recurrence-select');
 
         checkbox.addEventListener('click', () => toggleTodo(todo.id, li));
         deleteBtn.addEventListener('click', () => deleteTodo(todo.id, li));
         dupBtn.addEventListener('click', () => duplicateTodo(todo.id));
         priorityDot.addEventListener('click', () => cyclePriority(todo.id, priorityDot));
+
+        recurrenceSel.addEventListener('change', () => {
+            setRecurrence(todo.id, recurrenceSel.value);
+            const badge = li.querySelector('.recurrence-badge');
+            if (badge) badge.remove();
+            if (recurrenceSel.value !== 'none') {
+                const span = document.createElement('span');
+                span.className = 'recurrence-badge';
+                span.title = `Recurrencia: ${RECURRENCE_LABELS[recurrenceSel.value]}`;
+                span.textContent = `↻ ${RECURRENCE_LABELS[recurrenceSel.value]}`;
+                recurrenceSel.after(span);
+            }
+        });
 
         li.querySelectorAll('.tag-chip').forEach(chip => {
             chip.addEventListener('click', (e) => {
@@ -1249,6 +1443,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             const dot = noteToggle.querySelector('.note-dot');
             if (hasNote && !dot) { const d = document.createElement('span'); d.className = 'note-dot'; noteToggle.appendChild(d); }
             else if (!hasNote && dot) dot.remove();
+        });
+
+        subtaskToggle.addEventListener('click', () => {
+            const open = subtaskCont.style.display !== 'none';
+            if (open) { subtaskCont.style.display = 'none'; return; }
+            subtaskCont.style.display = 'block';
+            if (!subtaskCont.hasChildNodes()) subtaskCont.appendChild(buildSubtaskPanel(todo.id));
         });
 
         textSpan.addEventListener('dblclick', () => {

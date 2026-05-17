@@ -47,6 +47,7 @@
                 <button id="btn-login" class="auth-btn">Iniciar sesión</button>
                 <button id="btn-register" class="auth-btn secondary">Registrarse</button>
             </div>
+            <button id="btn-forgot" class="auth-link-btn">¿Olvidaste tu contraseña?</button>
             <div class="auth-divider"><span>o</span></div>
             <button id="btn-magic" class="auth-btn magic-btn">Acceder sin contraseña</button>
             <p id="auth-error" class="auth-error"></p>
@@ -80,7 +81,7 @@
         </div>
     </div>
 
-    <!-- ─── MODAL DE EXPORTAR ─── -->
+    <!-- ─── MODAL DE EXPORTAR / IMPORTAR ─── -->
     <div id="export-modal" class="shortcuts-modal" style="display:none;">
         <div class="shortcuts-card glass-panel">
             <div class="shortcuts-header">
@@ -92,6 +93,23 @@
                 <button id="export-csv" class="auth-btn secondary">CSV</button>
                 <button id="export-md" class="auth-btn secondary">Markdown</button>
             </div>
+            <div class="export-divider"><span>o</span></div>
+            <button id="import-json-btn" class="auth-btn magic-btn">Importar desde JSON</button>
+            <input type="file" id="import-file" accept=".json" style="display:none;">
+        </div>
+    </div>
+
+    <!-- ─── MODAL RESTABLECER CONTRASEÑA ─── -->
+    <div id="reset-modal" class="auth-modal" style="display:none;">
+        <div class="auth-card glass-panel">
+            <h2 class="glass-title auth-logo-title">✦ Restablecer contraseña</h2>
+            <p class="subtitle auth-subtitle">Escribe tu nueva contraseña.</p>
+            <input id="reset-password" type="password" placeholder="Nueva contraseña" autocomplete="new-password">
+            <input id="reset-confirm" type="password" placeholder="Confirmar contraseña" autocomplete="new-password">
+            <div class="auth-buttons">
+                <button id="btn-reset-submit" class="auth-btn">Guardar contraseña</button>
+            </div>
+            <p id="reset-error" class="auth-error"></p>
         </div>
     </div>
 

@@ -1,4 +1,4 @@
-const CACHE_NAME    = 'infinity-todo-v2';
+const CACHE_NAME    = 'infinity-todo-v3';
 const CACHE_ASSETS  = [
     '/',
     '/index.html',

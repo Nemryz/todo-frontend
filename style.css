@@ -2384,6 +2384,213 @@ body.compact-mode .delete-btn svg { width: 14px; height: 14px; }
 }
 
 /* ══════════════════════════════════════════════════
+   RECUPERAR CONTRASEÑA
+══════════════════════════════════════════════════ */
+
+.auth-link-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 0.82rem;
+    padding: 0.25rem 0;
+    cursor: pointer;
+    text-align: center;
+    width: 100%;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    transition: color 0.2s;
+}
+.auth-link-btn:hover { color: var(--primary); }
+
+.export-divider {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 0.75rem 0 0.5rem;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+.export-divider::before,
+.export-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--glass-border);
+}
+
+/* ══════════════════════════════════════════════════
+   SUBTAREAS
+══════════════════════════════════════════════════ */
+
+.todo-meta-row {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+    margin-top: 0.25rem;
+}
+
+.subtask-toggle-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0.2rem 0.35rem;
+    border-radius: 0.35rem;
+    display: flex;
+    align-items: center;
+    transition: color 0.15s, background 0.15s;
+}
+.subtask-toggle-btn:hover { color: var(--primary); background: var(--glass-border); }
+
+.subtask-container {
+    margin-top: 0.5rem;
+    padding: 0.5rem 0.5rem 0.35rem;
+    background: rgba(255,255,255,0.04);
+    border-radius: 0.5rem;
+    border: 1px solid var(--glass-border);
+}
+
+.subtask-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.2rem 0;
+}
+
+.subtask-check {
+    width: 14px;
+    height: 14px;
+    border: 1.5px solid var(--text-muted);
+    border-radius: 3px;
+    background: none;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.15s, border-color 0.15s;
+    position: relative;
+}
+.subtask-check.done {
+    background: var(--success);
+    border-color: var(--success);
+}
+.subtask-check.done::after {
+    content: '✓';
+    position: absolute;
+    top: -2px;
+    left: 1px;
+    font-size: 11px;
+    color: #fff;
+}
+
+.subtask-text {
+    flex: 1;
+    font-size: 0.83rem;
+    color: var(--text-main);
+}
+.subtask-text.done {
+    text-decoration: line-through;
+    color: var(--text-muted);
+}
+
+.subtask-del {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.7rem;
+    padding: 0.1rem 0.25rem;
+    border-radius: 0.25rem;
+    transition: color 0.15s;
+}
+.subtask-del:hover { color: var(--danger); }
+
+.subtask-add-row { margin-top: 0.35rem; }
+.subtask-input {
+    width: 100%;
+    background: none;
+    border: none;
+    border-bottom: 1px dashed var(--glass-border);
+    color: var(--text-main);
+    font-size: 0.82rem;
+    padding: 0.2rem 0;
+    outline: none;
+    box-sizing: border-box;
+    font-size: max(13px, 0.82rem);
+}
+.subtask-input::placeholder { color: var(--text-muted); }
+.subtask-input:focus { border-bottom-color: var(--primary); }
+
+/* ══════════════════════════════════════════════════
+   TAREAS RECURRENTES
+══════════════════════════════════════════════════ */
+
+.recurrence-select {
+    background: none;
+    border: 1px solid var(--glass-border);
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    padding: 0.15rem 0.35rem;
+    border-radius: 0.35rem;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+    font-family: var(--font-family);
+}
+.recurrence-select:hover,
+.recurrence-select:focus { border-color: var(--primary); color: var(--text-main); outline: none; }
+.recurrence-select option { background: var(--bg-base, #1a1a2e); color: var(--text-main); }
+
+.recurrence-badge {
+    font-size: 0.72rem;
+    color: var(--accent);
+    background: rgba(99,102,241,0.12);
+    border: 1px solid rgba(99,102,241,0.25);
+    border-radius: 999px;
+    padding: 0.1rem 0.45rem;
+    white-space: nowrap;
+}
+
+/* ══════════════════════════════════════════════════
+   ANIMACIONES DE ENTRADA — STAGGER
+══════════════════════════════════════════════════ */
+
+@keyframes todoSlideIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.todo-item {
+    animation: todoSlideIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ══════════════════════════════════════════════════
+   MODO TABLET (600px – 900px)
+══════════════════════════════════════════════════ */
+
+@media (min-width: 600px) and (max-width: 900px) {
+    .app-container { max-width: 720px; padding: 1.25rem 1.5rem; }
+
+    .stats-grid { grid-template-columns: repeat(3, 1fr); }
+
+    .list-header { flex-wrap: nowrap; gap: 0.75rem; }
+    .list-header-controls { gap: 0.5rem; }
+    .search-input { width: 180px; }
+
+    .shortcuts-card,
+    .whats-new-card,
+    .command-palette-card { max-width: 600px; }
+
+    .todo-form { gap: 0.75rem; }
+    .glow-btn { min-width: 48px; min-height: 48px; }
+
+    .filter-btn { font-size: 0.88rem; padding: 0.45rem 1rem; }
+
+    .app-header .theme-switcher { gap: 0.4rem; flex-wrap: wrap; }
+    .theme-btn { width: 34px; height: 34px; font-size: 0.85rem; }
+
+    .auth-card { max-width: 420px; padding: 2.5rem 2rem; }
+}
+
+/* ══════════════════════════════════════════════════
    RESPONSIVE MOBILE
 ══════════════════════════════════════════════════ */
 
