@@ -55,6 +55,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const authError    = document.getElementById('auth-error');
     const btnLogin     = document.getElementById('btn-login');
     const btnRegister  = document.getElementById('btn-register');
+    const btnMagic     = document.getElementById('btn-magic');
     const btnLogout    = document.getElementById('btn-logout');
     const appDiv       = document.getElementById('app');
 
@@ -274,6 +275,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         btnRegister.disabled = false;
         if (error) showAuthError(translateAuthError(error));
         else { authError.style.color = 'var(--success)'; authError.innerHTML = '<strong>Cuenta creada.</strong> <em>Revisa tu correo para confirmar tu dirección.</em>'; }
+    });
+
+    btnMagic.addEventListener('click', async () => {
+        const email = authEmail.value.trim();
+        if (!email) { showAuthError('Escribe tu correo electrónico primero.'); return; }
+        clearAuthError(); btnMagic.disabled = true;
+        const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
+        btnMagic.disabled = false;
+        if (error) { showAuthError(translateAuthError(error)); return; }
+        authError.style.color = 'var(--success)';
+        authError.textContent = 'Enlace enviado. Revisa tu correo para acceder.';
     });
 
     btnLogout.addEventListener('click', async () => { await sb.auth.signOut(); showToast('Sesión cerrada', 'info'); });

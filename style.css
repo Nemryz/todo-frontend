@@ -2350,6 +2350,40 @@ body.compact-mode .delete-btn svg { width: 14px; height: 14px; }
 .pomodoro-bar[data-phase="focus"] .pomodoro-phase-label { color: #60a5fa; }
 
 /* ══════════════════════════════════════════════════
+   MAGIC LINK / AUTH DIVIDER
+══════════════════════════════════════════════════ */
+
+.auth-divider {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 0.5rem 0;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--glass-border);
+}
+
+.magic-btn {
+    background: transparent;
+    border: 1px solid var(--glass-border);
+    color: var(--text-muted);
+    font-size: 0.88rem;
+    transition: border-color 0.2s, color 0.2s;
+}
+
+.magic-btn:hover {
+    border-color: var(--primary);
+    color: var(--text-main);
+}
+
+/* ══════════════════════════════════════════════════
    RESPONSIVE MOBILE
 ══════════════════════════════════════════════════ */
 
