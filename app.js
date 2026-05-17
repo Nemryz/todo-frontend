@@ -248,7 +248,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     async function checkBackendStatus() {
         const dot = document.getElementById('backend-status');
         try {
-            const res = await fetch(`${API_URL}/`, { signal: AbortSignal.timeout(6000) });
+            const res = await fetch(`/api/health`, { signal: AbortSignal.timeout(6000) });
             dot.className = 'backend-status ' + (res.ok ? 'online' : 'offline');
             dot.title = res.ok ? 'Servidor en línea' : 'Servidor con problemas';
         } catch {

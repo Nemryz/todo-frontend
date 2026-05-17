@@ -7,14 +7,13 @@ export default function handler(req, res) {
 
     const supabaseUrl     = process.env.SUPABASE_URL;
     const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
-    const apiUrl          = process.env.API_URL || "";
 
     if (!supabaseUrl || !supabaseAnonKey) {
         return res.status(503).json({ error: "Service configuration unavailable" });
     }
 
-    // No cachear — las keys no deben quedar en caché de CDN
+    // apiUrl vacío = mismo origen, todas las llamadas van a /api/* (proxy Vercel)
     res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
     res.setHeader("Content-Type", "application/json");
-    res.status(200).json({ supabaseUrl, supabaseAnonKey, apiUrl });
+    res.status(200).json({ supabaseUrl, supabaseAnonKey, apiUrl: "/api" });
 }
