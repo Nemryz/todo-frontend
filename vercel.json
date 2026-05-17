@@ -1,17 +1,30 @@
 {
+  "rewrites": [
+    {
+      "source": "/api/tasks/:path*",
+      "destination": "https://todo-api-backend-t5pj.onrender.com/tasks/:path*"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "X-Frame-Options",        "value": "DENY" },
         { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-        { "key": "Strict-Transport-Security", "value": "max-age=31536000; includeSubDomains" },
-        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" },
+        { "key": "Referrer-Policy",        "value": "strict-origin-when-cross-origin" },
+        { "key": "Strict-Transport-Security", "value": "max-age=31536000; includeSubDomains; preload" },
+        { "key": "Permissions-Policy",     "value": "camera=(), microphone=(), geolocation=(), payment=()" },
+        { "key": "X-Robots-Tag",           "value": "noindex, nofollow, noarchive" },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' cdn.jsdelivr.net accounts.google.com apis.google.com; style-src 'self' fonts.googleapis.com 'unsafe-inline'; font-src fonts.gstatic.com; connect-src 'self' https://khyoesumffyfkwsrxkzm.supabase.co https://todo-api-backend-t5pj.onrender.com https://www.googleapis.com https://cdn.jsdelivr.net; img-src 'self' data:; frame-ancestors 'none'"
+          "value": "default-src 'self'; script-src 'self'; style-src 'self' fonts.googleapis.com 'unsafe-inline'; font-src 'self' fonts.gstatic.com; connect-src 'self' https://khyoesumffyfkwsrxkzm.supabase.co; img-src 'self' data:; frame-ancestors 'none'; upgrade-insecure-requests"
         }
+      ]
+    },
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }
       ]
     }
   ]

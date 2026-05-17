@@ -2348,3 +2348,102 @@ body.compact-mode .delete-btn svg { width: 14px; height: 14px; }
 .pomodoro-bar[data-phase="work"]  .pomodoro-phase-label { color: #f87171; }
 .pomodoro-bar[data-phase="break"] .pomodoro-phase-label { color: #34d399; }
 .pomodoro-bar[data-phase="focus"] .pomodoro-phase-label { color: #60a5fa; }
+
+/* ══════════════════════════════════════════════════
+   RESPONSIVE MOBILE
+══════════════════════════════════════════════════ */
+
+/* Safe area para notch (iPhone X, iPhone 14 Pro, etc.) */
+.app-container {
+    padding-left: max(0.75rem, env(safe-area-inset-left));
+    padding-right: max(0.75rem, env(safe-area-inset-right));
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+/* Prevenir zoom automático en iOS Safari al enfocar inputs */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+textarea,
+select {
+    font-size: max(16px, 1em);
+}
+
+/* Tablets y móviles grandes (≤ 540px) */
+@media (max-width: 540px) {
+    .command-palette-card { max-width: 95vw; margin: 0 0.5rem; }
+    .shortcuts-card,
+    .whats-new-card { max-width: 95vw; }
+    .theme-btn { width: 28px; height: 28px; font-size: 0.78rem; }
+    .app-header .theme-switcher { gap: 0.25rem; flex-wrap: wrap; }
+}
+
+/* Móviles estándar (≤ 480px: iPhone SE, Pixel 7, Galaxy S23) */
+@media (max-width: 480px) {
+    .app-container { padding: 0.75rem; }
+
+    /* Estadísticas: 2 columnas en lugar de 3 */
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+
+    /* Encabezado de lista: apilar controles verticalmente */
+    .list-header {
+        flex-direction: column;
+        gap: 0.5rem;
+        align-items: flex-start;
+    }
+    .list-header-controls {
+        width: 100%;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+    }
+    .search-input { width: 100%; box-sizing: border-box; }
+    .sort-select  { flex: 1; min-width: 120px; }
+
+    /* Modales con scroll interno */
+    .shortcuts-card,
+    .whats-new-card,
+    .glass-panel { overflow-y: auto; max-height: 90vh; }
+
+    /* Filtros más compactos */
+    .filter-bar { gap: 0.3rem; }
+    .filter-btn { font-size: 0.8rem; padding: 0.35rem 0.6rem; }
+
+    /* Tap targets mínimos 44px */
+    .glow-btn { min-width: 44px; min-height: 44px; }
+    .action-btn,
+    .delete-btn { min-width: 36px; min-height: 36px; padding: 0.4rem; }
+    .theme-btn  { min-width: 32px; min-height: 32px; }
+
+    /* Pomodoro: respetar safe-area inferior */
+    .pomodoro-bar {
+        bottom: max(0.5rem, env(safe-area-inset-bottom));
+        max-width: calc(100vw - 1rem);
+    }
+
+    /* Auth card */
+    .auth-card { padding: 1.5rem 1rem; }
+
+    /* Botones de auth apilados */
+    .auth-buttons { flex-direction: column; gap: 0.5rem; }
+    .auth-btn { width: 100%; }
+}
+
+/* Móviles pequeños (≤ 360px: iPhone SE 1gen, Galaxy A12) */
+@media (max-width: 360px) {
+    /* Estadísticas: 1 columna */
+    .stats-grid { grid-template-columns: 1fr; }
+
+    /* Input de tarea apilado */
+    .todo-form { flex-direction: column; gap: 0.5rem; }
+    .glow-btn  { width: 100%; border-radius: 0.75rem; }
+
+    /* Temas: wrap y más pequeños */
+    .app-header .theme-switcher { gap: 0.2rem; }
+    .theme-btn { width: 26px; height: 26px; font-size: 0.7rem; }
+
+    /* Título más compacto */
+    .glass-title { font-size: 1.4rem; }
+
+    /* Filtros: wrap si es necesario */
+    .filter-bar { flex-wrap: wrap; }
+}

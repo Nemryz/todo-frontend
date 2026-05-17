@@ -1,10 +1,26 @@
-const API_URL           = 'https://todo-api-backend-t5pj.onrender.com';
-const SUPABASE_URL      = 'https://khyoesumffyfkwsrxkzm.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_FzQ38GSuCVGWIc3K7eTHDA_aub4_Yqi';
+// Las credenciales se cargan desde /api/config (Vercel serverless)
+// — nunca aparecen hardcodeadas en este archivo
+let sb, API_URL;
 
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+async function loadConfig() {
+    const res = await fetch('/api/config');
+    if (!res.ok) throw new Error('No se pudo cargar la configuración del servidor');
+    const { supabaseUrl, supabaseAnonKey, apiUrl } = await res.json();
+    API_URL = apiUrl;
+    sb = supabase.createClient(supabaseUrl, supabaseAnonKey);
+}
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    try {
+        await loadConfig();
+    } catch (err) {
+        document.body.innerHTML = `<div style="color:#ef4444;text-align:center;padding:2rem">
+            Error al iniciar la aplicación. Recarga la página.<br><small>${err.message}</small>
+        </div>`;
+        return;
+    }
+
+
 
     // ─── DOM refs ───────────────────────────────────────────
     const form          = document.getElementById('todo-form');
@@ -1292,4 +1308,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ─── Arrancar ───────────────────────────────
     initAuth();
+
+    // ─── Service Worker (PWA) ───────────────────
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js')
+            .catch(() => { /* SW no crítico — la app funciona sin él */ });
+    }
 });
