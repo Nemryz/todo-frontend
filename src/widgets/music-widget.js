@@ -1,4 +1,3 @@
-// ─── Music widget — YouTube IFrame mini-player ────────────────
 import { showToast } from '../components/toast.js';
 
 const STORAGE_KEY = 'todo-music-state';
@@ -6,6 +5,8 @@ let player = null;
 let container = null;
 let currentVideoId = '';
 let isPlaying = false;
+let _ytPromise = null;
+let _loading = false;
 
 function getState() {
     try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; }
@@ -18,14 +19,23 @@ function saveState(s) {
 
 function loadYouTubeAPI() {
     if (window.YT) return Promise.resolve();
-    return new Promise((resolve) => {
+    if (_ytPromise) return _ytPromise;
+    _ytPromise = new Promise((resolve, reject) => {
         const tag = document.createElement('script');
         tag.src = 'https://www.youtube.com/iframe_api';
         tag.async = true;
         const first = document.getElementsByTagName('script')[0];
         first.parentNode.insertBefore(tag, first);
-        window.onYouTubeIframeAPIReady = resolve;
+        const timeout = setTimeout(() => {
+            _ytPromise = null;
+            reject(new Error('Timeout'));
+        }, 10000);
+        window.onYouTubeIframeAPIReady = () => {
+            clearTimeout(timeout);
+            resolve();
+        };
     });
+    return _ytPromise;
 }
 
 function playPauseHTML(playing) {
@@ -80,6 +90,7 @@ function render(playerEl) {
     searchBtn.addEventListener('click', () => handleSearch(searchInput.value));
     searchInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleSearch(searchInput.value); });
     searchInput.addEventListener('paste', () => {
+        if (_loading) return;
         setTimeout(() => {
             const val = searchInput.value.trim();
             const vid = extractVideoId(val);
@@ -108,7 +119,7 @@ function render(playerEl) {
     });
 
     if (currentVideoId) {
-        loadYouTubeAPI().then(() => initPlayer(currentVideoId));
+        initPlayer(currentVideoId);
     }
 
     renderPlaylists();
@@ -123,38 +134,51 @@ const ERROR_MSG = {
 };
 
 function initPlayer(videoId) {
+    if (_loading) return;
     if (player) {
         player.loadVideoById(videoId);
         return;
     }
-    player = new YT.Player('music-youtube-player', {
-        videoId,
-        height: 180,
-        width: '100%',
-        playerVars: {
-            autoplay: 1,
-            controls: 0,
-            modestbranding: 1,
-            rel: 0,
-        },
-        events: {
-            onReady: () => {
-                const vol = getState().volume ?? 50;
-                player.setVolume(vol);
-            },
-            onStateChange: (e) => {
-                isPlaying = e.data === YT.PlayerState.PLAYING;
-                const btn = container?.querySelector('.music-play-pause');
-                if (btn) btn.innerHTML = playPauseHTML(isPlaying);
-                if (e.data === YT.PlayerState.ENDED) {
-                    // Auto-play next from playlist
-                }
-            },
-            onError: (e) => {
-                const msg = ERROR_MSG[e.data] || 'Error desconocido al reproducir';
-                showToast(msg, 'error');
-            },
-        },
+    _loading = true;
+    loadYouTubeAPI().then(() => {
+        try {
+            player = new YT.Player('music-youtube-player', {
+                videoId,
+                height: 180,
+                width: '100%',
+                playerVars: {
+                    autoplay: 1,
+                    controls: 0,
+                    modestbranding: 1,
+                    rel: 0,
+                },
+                events: {
+                    onReady: () => {
+                        _loading = false;
+                        const vol = getState().volume ?? 50;
+                        player.setVolume(vol);
+                    },
+                    onStateChange: (e) => {
+                        isPlaying = e.data === YT.PlayerState.PLAYING;
+                        const btn = container?.querySelector('.music-play-pause');
+                        if (btn) btn.innerHTML = playPauseHTML(isPlaying);
+                    },
+                    onError: (e) => {
+                        _loading = false;
+                        const msg = ERROR_MSG[e.data] || 'Error desconocido al reproducir';
+                        showToast(msg, 'error');
+                    },
+                },
+            });
+        } catch (err) {
+            _loading = false;
+            player = null;
+            showToast('Error al crear el reproductor', 'error');
+        }
+    }).catch(() => {
+        _loading = false;
+        _ytPromise = null;
+        showToast('La API de YouTube no está disponible', 'error');
     });
 }
 
@@ -192,11 +216,7 @@ function togglePlay() {
 function playVideo(videoId) {
     currentVideoId = videoId;
     saveState({ ...getState(), videoId });
-    if (!window.YT) {
-        loadYouTubeAPI().then(() => initPlayer(videoId));
-    } else {
-        initPlayer(videoId);
-    }
+    initPlayer(videoId);
 }
 
 function renderPlaylists() {
@@ -204,7 +224,7 @@ function renderPlaylists() {
     if (!list) return;
     const state = getState();
     const playlists = state.playlists || [];
-    list.innerHTML = playlists.map((pl, i) => `
+    list.innerHTML = playlists.map((pl) => `
         <div class="music-playlist-item">
             <span>${escapeHTML(pl.name)}</span>
             <span class="music-playlist-count">${pl.videos.length}</span>
