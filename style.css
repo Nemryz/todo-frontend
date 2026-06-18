@@ -1198,6 +1198,17 @@ body.theme-office .theme-btn.active {
 #theme-sunset    svg { color: #f97316; }
 #theme-contrast  svg { color: #ffff00; }
 
+/* Color de icono por accion */
+#btn-pomodoro    svg { color: #ef4444; }
+#concentrado-btn svg { color: #a855f7; }
+#btn-calendar    svg { color: #f59e0b; }
+#btn-music       svg { color: #ec4899; }
+#btn-stats       svg { color: #10b981; }
+#btn-shortcuts   svg { color: var(--text-main); }
+#btn-export      svg { color: #06b6d4; }
+#btn-logout      svg { color: #ef4444; }
+#btn-typography  { color: var(--text-main); }
+
 /* ��������� APP WRAPPER ��������������������������������������������������������������������������� */
 #app {
     width: 100%;
