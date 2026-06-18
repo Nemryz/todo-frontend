@@ -1188,6 +1188,16 @@ body.theme-office .theme-btn.active {
     box-shadow: 0 2px 10px rgba(37, 99, 235, 0.35);
 }
 
+/* Color de icono por tema */
+#theme-cosmos    svg { color: #a855f7; }
+#theme-hacker    svg { color: #00ff41; }
+#theme-office    svg { color: #3b82f6; }
+#theme-minimal   svg { color: var(--text-main); }
+#theme-nord      svg { color: #88c0d0; }
+#theme-sakura    svg { color: #ff9bc1; }
+#theme-sunset    svg { color: #f97316; }
+#theme-contrast  svg { color: #ffff00; }
+
 /* ��������� APP WRAPPER ��������������������������������������������������������������������������� */
 #app {
     width: 100%;
