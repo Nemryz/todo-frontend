@@ -126,21 +126,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     const pomodoroStop       = document.getElementById('pomodoro-stop');
 
     // Phase 3 — Panel refs
-    const appLayout           = document.getElementById('app-layout');
-    const panelLeft           = document.getElementById('panel-left');
-    const panelRight          = document.getElementById('panel-right');
+    const panelRightDrawer    = document.getElementById('panel-right-drawer');
     const smartListSection    = document.getElementById('smart-list-section');
     const panelTags           = document.getElementById('panel-tags');
     const centerListIcon      = document.getElementById('center-list-icon');
     const centerListName      = document.getElementById('center-list-name');
     const centerListBadge     = document.getElementById('center-list-badge');
-    const panelLeftToggle     = document.getElementById('panel-left-toggle');
     const panelRightToggle    = document.getElementById('panel-right-toggle');
     const panelRightClose     = document.getElementById('panel-right-close');
     const concentradoBtn      = document.getElementById('concentrado-btn');
     const nlpChips            = document.getElementById('nlp-chips');
-    const panelUserEmail      = document.getElementById('panel-user-email');
-    const panelLeftOverlay    = document.getElementById('panel-left-overlay');
     const rightTabs           = document.querySelectorAll('.right-tab');
     const tabCalendar         = document.getElementById('tab-calendar');
     const tabMusic            = document.getElementById('tab-music');
@@ -172,8 +167,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let viewMode        = localStorage.getItem('todo-view') || 'list';
     let activeTag       = null;
     let compactMode     = localStorage.getItem('todo-compact') === 'true';
-    let panelLeftOpen   = localStorage.getItem('todo-panel-left') !== 'false';
-    let panelRightOpen  = localStorage.getItem('todo-panel-right') === 'true';
+    let drawerOpen      = localStorage.getItem('todo-drawer') === 'true';
 
 
     // Pomodoro state
@@ -849,15 +843,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     function switchRightTab(tabId) {
         rightTabs.forEach(t => t.classList.toggle('active', t.dataset.tab === tabId));
         [tabCalendar, tabMusic, tabStats].forEach(el => el.classList.toggle('active', el.id === `tab-${tabId}`));
+        if (tabId === 'calendar') renderCalendar(calYear, calMonth);
         if (tabId === 'stats') renderStats();
         if (tabId === 'music' && !musicWidgetInit) {
             musicWidgetInit = true;
             const cfg = { youtubeApiKey: window.__YT_API_KEY };
             musicWidget.render(document.getElementById('music-player-container'), cfg);
         }
-        if (!panelRightOpen) {
-            panelRightOpen = true;
-            updatePanelState();
+        if (!drawerOpen) {
+            drawerOpen = true;
+            updateDrawer();
         }
     }
 
@@ -897,18 +892,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('stat-pomodoros').textContent = getPomodoroTotal() + pomodoroCompleted;
     }
 
-    if (btnCalendar) btnCalendar.addEventListener('click', () => {
-        if (!panelRightOpen || tabCalendar.classList.contains('active')) { togglePanelRight(); }
-        else { switchRightTab('calendar'); }
-    });
-    if (btnMusic) btnMusic.addEventListener('click', () => {
-        if (!panelRightOpen || tabMusic.classList.contains('active')) { togglePanelRight(); }
-        else { switchRightTab('music'); }
-    });
-    if (btnStats) btnStats.addEventListener('click', () => {
-        if (!panelRightOpen || tabStats.classList.contains('active')) { togglePanelRight(); }
-        else { switchRightTab('stats'); }
-    });
+    if (btnCalendar) btnCalendar.addEventListener('click', () => switchRightTab('calendar'));
+    if (btnMusic) btnMusic.addEventListener('click', () => switchRightTab('music'));
+    if (btnStats) btnStats.addEventListener('click', () => switchRightTab('stats'));
 
     // ─── Calendar ───
     const calGrid       = document.getElementById('cal-grid');
@@ -1014,6 +1000,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function openCalendar() {
         switchRightTab('calendar');
+    }
+    function closeCalendar() {
+        if (drawerOpen) { drawerOpen = false; updateDrawer(); }
     }
 
     const calShowAll = document.getElementById('cal-show-all');
@@ -1226,8 +1215,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (e.key === 'p' || e.key === 'P') { e.preventDefault(); if (pomodoroInterval) stopPomodoro(); else startPomodoro(); return; }
         if (e.key === 'e' || e.key === 'E') { e.preventDefault(); openExportModal(); return; }
         if (e.key === '?') { e.preventDefault(); openShortcuts(); return; }
-        if (e.key === 'b') { e.preventDefault(); togglePanelLeft(); return; }
-        if (e.key === 'B') { e.preventDefault(); togglePanelRight(); return; }
+        if (e.key === 'b' || e.key === 'B') { e.preventDefault(); toggleDrawer(); return; }
         if (e.key === '1') { e.preventDefault(); document.getElementById('filter-all').click(); return; }
         if (e.key === '2') { e.preventDefault(); document.getElementById('filter-pending').click(); return; }
         if (e.key === '3') { e.preventDefault(); document.getElementById('filter-done').click(); return; }
@@ -1239,7 +1227,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     filterBtns.forEach(btn => {
         btn.addEventListener('click', () => {
             const id = btn.id.replace('filter-', '');
-            const map = { all: 'all', pending: 'pendientes', done: 'done' };
+            const map = { all: 'all', pending: 'pending', done: 'done', archived: 'archived' };
             const smartId = map[id] || 'all';
             setActiveSmartList(smartId);
         });
@@ -1417,35 +1405,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (centerListBadge) centerListBadge.textContent = count;
     }
 
-    // ─── Panel toggle ───
-    function updatePanelState() {
-        localStorage.setItem('todo-panel-left', panelLeftOpen);
-        localStorage.setItem('todo-panel-right', panelRightOpen);
-        appLayout.classList.toggle('panel-left-hidden', !panelLeftOpen);
-        appLayout.classList.toggle('panel-right-hidden', !panelRightOpen);
-        if (panelLeftToggle) panelLeftToggle.textContent = panelLeftOpen ? '◀' : '▶';
-        if (panelRightToggle) panelRightToggle.textContent = panelRightOpen ? '▶' : '◀';
+    // ─── Drawer toggle ───
+    function updateDrawer() {
+        localStorage.setItem('todo-drawer', drawerOpen);
+        panelRightDrawer.classList.toggle('open', drawerOpen);
+        if (panelRightToggle) panelRightToggle.textContent = drawerOpen ? '▶' : '◀';
     }
 
-    function togglePanelLeft() { panelLeftOpen = !panelLeftOpen; updatePanelState(); }
-    function togglePanelRight() { panelRightOpen = !panelRightOpen; updatePanelState(); }
+    function toggleDrawer() { drawerOpen = !drawerOpen; updateDrawer(); }
 
-    if (panelLeftToggle) panelLeftToggle.addEventListener('click', togglePanelLeft);
-    if (panelRightToggle) panelRightToggle.addEventListener('click', togglePanelRight);
-    if (panelRightClose) panelRightClose.addEventListener('click', () => { panelRightOpen = false; updatePanelState(); });
-    if (panelLeftOverlay) panelLeftOverlay.addEventListener('click', togglePanelLeft);
-
-    // Mobile: open left panel via overlay
-    if (panelLeftOverlay) {
-        panelLeft.addEventListener('click', (e) => {
-            if (window.innerWidth <= 768 && e.target === panelLeft) togglePanelLeft();
-        });
-    }
+    if (panelRightToggle) panelRightToggle.addEventListener('click', toggleDrawer);
+    if (panelRightClose) panelRightClose.addEventListener('click', () => { drawerOpen = false; updateDrawer(); });
 
     // ─── Concentrado ───
     if (concentradoBtn) concentradoBtn.addEventListener('click', toggleFocusMode);
 
-    updatePanelState();
+    updateDrawer();
 
     // ─── NLP Chips ───
     function updateNlpChips(text) {

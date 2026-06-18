@@ -73,6 +73,7 @@
                 <li><kbd>1</kbd> <span>Filtro: Todas</span></li>
                 <li><kbd>2</kbd> <span>Filtro: Pendientes</span></li>
                 <li><kbd>3</kbd> <span>Filtro: Completadas</span></li>
+                <li><kbd>B</kbd> <span>Alternar panel lateral</span></li>
                 <li><kbd>?</kbd> <span>Mostrar este panel</span></li>
                 <li><kbd>Ctrl K</kbd> <span>Paleta de comandos</span></li>
                 <li><kbd>Ctrl Z</kbd> <span>Deshacer eliminación</span></li>
@@ -203,55 +204,43 @@
 
     <!-- ─── APP ─── -->
     <div id="app" style="display:none; width:100%;">
-        <div class="app-layout" id="app-layout">
+        <main class="app-container">
 
-            <!-- Left Panel -->
-            <aside class="panel-left" id="panel-left">
-                <div class="panel-left-header">
-                    <span class="panel-left-user" id="panel-user-email"></span>
-                    <button class="panel-left-toggle" id="panel-left-toggle" title="Colapsar panel (B)">◀</button>
+            <header class="app-header">
+                <h1 class="glass-title">Mis Tareas</h1>
+                <p class="subtitle">Organiza tu día con estilo <span id="backend-status" class="backend-status" title="Verificando servidor..."></span></p>
+                <div class="center-header" style="margin-bottom:0.75rem;display:flex;justify-content:center;gap:0.5rem;align-items:center;">
+                    <span class="center-list-icon" id="center-list-icon">📋</span>
+                    <span class="center-list-name" id="center-list-name">Todas</span>
+                    <span class="center-list-badge" id="center-list-badge">0</span>
                 </div>
                 <div class="smart-list-section" id="smart-list-section"></div>
-                <div class="smart-list-label" style="margin-top:var(--space-2);padding:var(--space-1) var(--space-2);">Etiquetas</div>
-                <div class="panel-tags" id="panel-tags"></div>
-                <div class="panel-actions">
-                    <button class="theme-btn active" id="theme-cosmos"   title="Cosmos">🌌</button>
-                    <button class="theme-btn"        id="theme-hacker"   title="Hacker">💻</button>
-                    <button class="theme-btn"        id="theme-office"   title="Office">📋</button>
-                    <button class="theme-btn"        id="theme-minimal"  title="Minimal">◼</button>
-                    <button class="theme-btn"        id="theme-nord"     title="Nord">❄</button>
-                    <button class="theme-btn"        id="theme-sakura"   title="Sakura">🌸</button>
-                    <button class="theme-btn"        id="theme-sunset"   title="Sunset">🌅</button>
-                    <button class="theme-btn"        id="theme-contrast" title="Contraste">◑</button>
-                    <button class="panel-action-btn" id="btn-typography" title="Tipografía">Aa</button>
-                    <button class="panel-action-btn" id="btn-shortcuts"  title="Atajos (?)">⌨</button>
-                    <button class="panel-action-btn" id="btn-export"     title="Exportar (E)">↓</button>
-                    <button class="panel-action-btn" id="btn-logout"     title="Cerrar sesión">🚪</button>
+                <div class="panel-tags" id="panel-tags" style="margin-top:0.5rem;"></div>
+                <div class="theme-switcher" role="group" aria-label="Seleccionar tema">
+                    <button id="theme-cosmos"    class="theme-btn active" title="Cosmos (Default)">🌌</button>
+                    <button id="theme-hacker"    class="theme-btn" title="Terminal Hacker">💻</button>
+                    <button id="theme-office"    class="theme-btn" title="Office Paper">📋</button>
+                    <button id="theme-minimal"   class="theme-btn" title="Dark Minimal">◼</button>
+                    <button id="theme-nord"      class="theme-btn" title="Nord">❄</button>
+                    <button id="theme-sakura"    class="theme-btn" title="Sakura">🌸</button>
+                    <button id="theme-sunset"    class="theme-btn" title="Sunset">🌅</button>
+                    <button id="theme-contrast"  class="theme-btn" title="Alto Contraste">◑</button>
+                    <button id="btn-typography"  class="theme-btn" title="Tipografía">Aa</button>
+                    <button id="btn-pomodoro"    class="theme-btn" title="Pomodoro (P)">⏱</button>
+                    <button id="concentrado-btn" class="theme-btn concentrado-btn" title="Modo concentrado (F)">🧘</button>
+                    <button id="btn-calendar"    class="theme-btn" title="Calendario">📅</button>
+                    <button id="btn-music"       class="theme-btn" title="Música">🎵</button>
+                    <button id="btn-stats"       class="theme-btn" title="Estadísticas">📊</button>
+                    <button id="btn-shortcuts"   class="theme-btn" title="Atajos de teclado (?)">⌨</button>
+                    <button id="btn-export"      class="theme-btn" title="Exportar tareas (E)">↓</button>
+                    <button id="btn-logout"      class="theme-btn" title="Cerrar sesión">🚪</button>
                 </div>
-            </aside>
-
-            <!-- Center -->
-            <main class="app-container">
-                <div class="center-header">
-                    <div class="center-header-left">
-                        <span class="center-list-icon" id="center-list-icon">📋</span>
-                        <span class="center-list-name" id="center-list-name">Todas</span>
-                        <span class="center-list-badge" id="center-list-badge">0</span>
-                    </div>
-                    <div class="center-header-actions">
-                        <button id="concentrado-btn" class="panel-action-btn concentrado-btn" title="Modo concentrado (F)">🧘</button>
-                        <button id="btn-pomodoro" class="panel-action-btn" title="Pomodoro (P)">⏱</button>
-                        <button id="btn-calendar" class="panel-action-btn" title="Calendario">📅</button>
-                        <button id="btn-music" class="panel-action-btn" title="Música">🎵</button>
-                        <button id="btn-stats" class="panel-action-btn" title="Estadísticas">📊</button>
-                        <span id="backend-status" class="backend-status" title="Verificando servidor..." style="margin-left:var(--space-1);"></span>
-                    </div>
-                </div>
+            </header>
 
             <section class="add-section glass-panel">
                 <form id="todo-form" class="todo-form">
                     <div class="input-wrapper">
-                        <input type="text" id="todo-input" placeholder="¿Qué necesitas hacer hoy?" autocomplete="off" maxlength="500" required>
+                        <input type="text" id="todo-input" placeholder="¿Qué necesitas hacer hoy? (Ej: reunión mañana !alta)" autocomplete="off" maxlength="500" required>
                         <div class="input-meta">
                             <span id="date-preview" class="date-preview"></span>
                             <span id="char-counter" class="char-counter">0/500</span>
@@ -266,30 +255,38 @@
 
             <section class="list-section">
                 <div class="list-header">
-                    <div class="header-title-group" style="display:none;">
-                        <h2 style="display:none;">Mis Tareas</h2>
-                        <span id="task-count" class="badge" style="display:none;">0</span>
+                    <div class="header-title-group">
+                        <h2>Mis Tareas</h2>
+                        <span id="task-count" class="badge">0</span>
                     </div>
                     <div class="list-header-controls">
-                        <input type="text" id="search-input" class="search-input" placeholder="🔍 Buscar..." autocomplete="off">
+                        <button id="view-toggle"  class="view-toggle-btn" title="Vista tarjetas (G)" aria-label="Cambiar vista">⊞</button>
+                        <button id="btn-compact"  class="view-toggle-btn" title="Modo compacto (C)" aria-label="Modo compacto">⊟</button>
+                        <button id="panel-right-toggle" class="view-toggle-btn" title="Panel lateral (B)">◀</button>
                         <select id="sort-select" class="sort-select" title="Ordenar por">
-                            <option value="default">Manual</option>
-                            <option value="az">A→Z</option>
-                            <option value="za">Z→A</option>
-                            <option value="pending">Pendientes</option>
-                            <option value="done">Completadas</option>
+                            <option value="default">Orden manual</option>
+                            <option value="az">A → Z</option>
+                            <option value="za">Z → A</option>
+                            <option value="pending">Pendientes primero</option>
+                            <option value="done">Completadas primero</option>
                         </select>
-                        <button id="view-toggle"  class="view-toggle-btn" title="Vista (G)">⊞</button>
-                        <button id="btn-compact"  class="view-toggle-btn" title="Compacto (C)">⊟</button>
-                        <button id="panel-right-toggle" class="view-toggle-btn" title="Panel derecho (Shift+B)">◀</button>
+                        <input type="text" id="search-input" class="search-input" placeholder="🔍 Buscar..." autocomplete="off">
                     </div>
                 </div>
 
-                <div class="filter-bar" style="display:none;">
-                    <button id="filter-all" class="filter-btn active">Todas <span id="badge-all" class="filter-badge">0</span></button>
-                    <button id="filter-pending" class="filter-btn">Pendientes <span id="badge-pending" class="filter-badge">0</span></button>
-                    <button id="filter-done" class="filter-btn">Completadas <span id="badge-done" class="filter-badge">0</span></button>
-                    <button id="filter-archived" class="filter-btn">📦 Archivadas <span id="badge-archived" class="filter-badge">0</span></button>
+                <div class="filter-bar">
+                    <button id="filter-all" class="filter-btn active">
+                        Todas <span id="badge-all" class="filter-badge">0</span>
+                    </button>
+                    <button id="filter-pending" class="filter-btn">
+                        Pendientes <span id="badge-pending" class="filter-badge">0</span>
+                    </button>
+                    <button id="filter-done" class="filter-btn">
+                        Completadas <span id="badge-done" class="filter-badge">0</span>
+                    </button>
+                    <button id="filter-archived" class="filter-btn">
+                        📦 Archivadas <span id="badge-archived" class="filter-badge">0</span>
+                    </button>
                 </div>
 
                 <div class="progress-container" id="progress-container">
@@ -315,10 +312,11 @@
 
                 <ul id="todo-list" class="todo-list"></ul>
             </section>
+
         </main>
 
-        <!-- Right Panel -->
-        <aside class="panel-right" id="panel-right">
+        <!-- Right Panel Drawer -->
+        <aside class="panel-right-drawer" id="panel-right-drawer">
             <button class="right-panel-close" id="panel-right-close" title="Cerrar panel">✕</button>
             <div class="right-tab-bar">
                 <button class="right-tab active" data-tab="calendar">📅 Calendario</button>
@@ -340,7 +338,7 @@
                     <div class="cal-tasks-header">
                         <span id="cal-tasks-date" class="cal-tasks-date"></span>
                         <span id="cal-tasks-count" class="cal-tasks-count"></span>
-                        <button id="cal-show-all" class="cal-show-all-btn" title="Ver todas">📋</button>
+                        <button id="cal-show-all" class="cal-show-all-btn" title="Ver todas las tareas">📋 Todas</button>
                     </div>
                     <ul id="cal-tasks-list" class="cal-tasks-list"></ul>
                 </div>
@@ -352,37 +350,33 @@
                 <div class="stats-grid">
                     <div class="stat-card">
                         <span class="stat-value" id="stat-today">0</span>
-                        <span class="stat-label">Hoy</span>
+                        <span class="stat-label">Completadas hoy</span>
                     </div>
                     <div class="stat-card">
                         <span class="stat-value" id="stat-streak">—</span>
-                        <span class="stat-label">Racha</span>
+                        <span class="stat-label">Racha de días</span>
                     </div>
                     <div class="stat-card">
                         <span class="stat-value" id="stat-rate">0%</span>
-                        <span class="stat-label">Tasa</span>
+                        <span class="stat-label">Tasa de completación</span>
                     </div>
                     <div class="stat-card">
                         <span class="stat-value" id="stat-points">0</span>
-                        <span class="stat-label">Puntos</span>
+                        <span class="stat-label">Puntos totales</span>
                     </div>
                     <div class="stat-card">
                         <span class="stat-value" id="stat-hour">—</span>
-                        <span class="stat-label">Hora pico</span>
+                        <span class="stat-label">Hora más productiva</span>
                     </div>
                     <div class="stat-card">
                         <span class="stat-value" id="stat-pomodoros">0</span>
-                        <span class="stat-label">Pomodoros</span>
+                        <span class="stat-label">Pomodoros completados</span>
                     </div>
                 </div>
             </div>
         </aside>
 
-        <!-- Mobile overlay for left panel -->
-        <div class="panel-left-overlay" id="panel-left-overlay"></div>
-
     </div>
-</div>
 
     <div class="bg-shapes">
         <div class="shape shape-1"></div>
