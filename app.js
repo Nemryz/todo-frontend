@@ -641,15 +641,42 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // ─────────────────────────────────────────────
-    // SUBTAREAS
+    // SUBTAREAS (persistidas en backend)
     // ─────────────────────────────────────────────
     function getSubtasks(taskId) {
-        return JSON.parse(localStorage.getItem(`todo-subtasks-${taskId}`) || '[]');
+        const task = allTasks.find(t => t.id === taskId);
+        return task?.subtasks || [];
     }
-    function saveSubtasks(taskId, subtasks) {
-        if (subtasks.length) localStorage.setItem(`todo-subtasks-${taskId}`, JSON.stringify(subtasks));
-        else localStorage.removeItem(`todo-subtasks-${taskId}`);
+    function setSubtasks(taskId, subtasks) {
+        const task = allTasks.find(t => t.id === taskId);
+        if (task) task.subtasks = subtasks;
     }
+
+    async function apiCreateSubtask(taskId, text) {
+        const res = await authFetch(`${API_URL}/tasks/${taskId}/subtasks`, {
+            method: 'POST',
+            body: JSON.stringify({ text })
+        });
+        if (!res.ok) throw new Error('Error al crear subtarea');
+        return res.json();
+    }
+
+    async function apiToggleSubtask(taskId, subtaskId, done) {
+        const res = await authFetch(`${API_URL}/tasks/${taskId}/subtasks/${subtaskId}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ done })
+        });
+        if (!res.ok) throw new Error('Error al actualizar subtarea');
+        return res.json();
+    }
+
+    async function apiDeleteSubtask(taskId, subtaskId) {
+        const res = await authFetch(`${API_URL}/tasks/${taskId}/subtasks/${subtaskId}`, {
+            method: 'DELETE'
+        });
+        if (!res.ok) throw new Error('Error al eliminar subtarea');
+    }
+
     function buildSubtaskPanel(taskId) {
         const panel = document.createElement('div');
         panel.className = 'subtask-panel';
@@ -657,7 +684,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         function refresh() {
             panel.innerHTML = '';
             const subtasks = getSubtasks(taskId);
-            subtasks.forEach((st, i) => {
+            subtasks.forEach((st) => {
                 const row = document.createElement('div');
                 row.className = 'subtask-row';
                 row.innerHTML = `
@@ -665,17 +692,22 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <span class="subtask-text${st.done ? ' done' : ''}">${escapeHTML(st.text)}</span>
                     <button class="subtask-del" title="Eliminar">✕</button>
                 `;
-                row.querySelector('.subtask-check').addEventListener('click', () => {
-                    const list = getSubtasks(taskId);
-                    list[i].done = !list[i].done;
-                    saveSubtasks(taskId, list);
-                    refresh();
+                row.querySelector('.subtask-check').addEventListener('click', async () => {
+                    try {
+                        const updated = await apiToggleSubtask(taskId, st.id, !st.done);
+                        st.done = updated.done;
+                        refresh();
+                    } catch { showToast('Error al actualizar subtarea', 'error'); }
                 });
-                row.querySelector('.subtask-del').addEventListener('click', () => {
-                    const list = getSubtasks(taskId);
-                    list.splice(i, 1);
-                    saveSubtasks(taskId, list);
-                    refresh();
+                row.querySelector('.subtask-del').addEventListener('click', async () => {
+                    try {
+                        await apiDeleteSubtask(taskId, st.id);
+                        const list = getSubtasks(taskId);
+                        const idx = list.findIndex(s => s.id === st.id);
+                        if (idx !== -1) list.splice(idx, 1);
+                        setSubtasks(taskId, list);
+                        refresh();
+                    } catch { showToast('Error al eliminar subtarea', 'error'); }
                 });
                 panel.appendChild(row);
             });
@@ -683,14 +715,17 @@ document.addEventListener('DOMContentLoaded', async () => {
             addRow.className = 'subtask-add-row';
             addRow.innerHTML = `<input class="subtask-input" type="text" placeholder="Nueva subtarea..." maxlength="200">`;
             const inp = addRow.querySelector('.subtask-input');
-            inp.addEventListener('keydown', (e) => {
+            inp.addEventListener('keydown', async (e) => {
                 if (e.key !== 'Enter') return;
                 const text = inp.value.trim();
                 if (!text) return;
-                const list = getSubtasks(taskId);
-                list.push({ id: Date.now(), text, done: false });
-                saveSubtasks(taskId, list);
-                refresh();
+                try {
+                    const created = await apiCreateSubtask(taskId, text);
+                    const list = getSubtasks(taskId);
+                    list.push(created);
+                    setSubtasks(taskId, list);
+                    refresh();
+                } catch { showToast('Error al crear subtarea', 'error'); }
             });
             panel.appendChild(addRow);
         }
@@ -1368,6 +1403,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     </div>
                     <button class="subtask-toggle-btn" title="Subtareas" aria-label="Subtareas">
                         <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                        ${(todo.subtasks?.length > 0) ? `<span class="subtask-count-badge">${todo.subtasks.length}</span>` : ''}
                     </button>
                     <select class="recurrence-select" title="Recurrencia" aria-label="Recurrencia">
                         <option value="none"${recurrence === 'none' ? ' selected' : ''}>Sin recurrencia</option>

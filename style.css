@@ -2443,6 +2443,22 @@ body.compact-mode .delete-btn svg { width: 14px; height: 14px; }
 }
 .subtask-toggle-btn:hover { color: var(--primary); background: var(--glass-border); }
 
+.subtask-count-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 14px;
+    height: 14px;
+    padding: 0 3px;
+    border-radius: 7px;
+    background: var(--primary);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+    margin-left: 3px;
+}
+
 .subtask-container {
     margin-top: 0.5rem;
     padding: 0.5rem 0.5rem 0.35rem;
