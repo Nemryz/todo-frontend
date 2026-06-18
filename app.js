@@ -1052,6 +1052,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function showDayTasks(key, tasksByDate) {
+        if (calSelected === key && calTasks.style.display === 'block') {
+            calSelected = null;
+            calTasks.style.display = 'none';
+            renderCalendar(calYear, calMonth);
+            return;
+        }
         calSelected = key;
         renderCalendar(calYear, calMonth);
         const tasks = tasksByDate[key] || [];
@@ -1095,12 +1101,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         btnCalendar.classList.remove('active');
         calTasks.style.display = 'none';
         calSelected = null;
+        if (activeFilter !== 'all') {
+            const filterAll = document.getElementById('filter-all');
+            if (filterAll) filterAll.click();
+        }
     }
 
     if (btnCalendar) btnCalendar.addEventListener('click', () => {
         calendarVisible ? closeCalendar() : openCalendar();
     });
     if (calClose) calClose.addEventListener('click', closeCalendar);
+    const calShowAll = document.getElementById('cal-show-all');
+    if (calShowAll) calShowAll.addEventListener('click', () => {
+        closeCalendar();
+        const filterAll = document.getElementById('filter-all');
+        if (filterAll) filterAll.click();
+    });
     if (calPrev) calPrev.addEventListener('click', () => {
         calMonth--;
         if (calMonth < 0) { calMonth = 11; calYear--; }

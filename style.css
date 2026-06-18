@@ -2813,7 +2813,20 @@ select {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 0.5rem;
+    gap: 0.5rem;
 }
+.cal-show-all-btn {
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    padding: 0.3rem 0.6rem;
+    border-radius: 0.35rem;
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: opacity 0.15s;
+    white-space: nowrap;
+}
+.cal-show-all-btn:hover { opacity: 0.85; }
 .cal-tasks-date {
     font-weight: 600;
     font-size: 0.9rem;
