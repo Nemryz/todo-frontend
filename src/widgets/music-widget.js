@@ -1,4 +1,5 @@
 // ─── Music widget — YouTube IFrame mini-player ────────────────
+import { showToast } from '../components/toast.js';
 
 const STORAGE_KEY = 'todo-music-state';
 let player = null;
@@ -40,6 +41,7 @@ function render(playerEl) {
                     <input type="text" class="music-search" placeholder="Buscar en YouTube..." value="${state.lastSearch || ''}">
                     <button class="music-search-btn" title="Buscar">🔍</button>
                 </div>
+                <div class="music-search-hint">Busca un video, pega el ID o URL de YouTube</div>
             </div>
             <div class="music-player-area">
                 <div id="music-youtube-player" class="music-youtube-player"></div>
@@ -68,8 +70,15 @@ function render(playerEl) {
     const volumeSlider = container.querySelector('.music-volume');
     const addPlaylistBtn = container.querySelector('.music-add-playlist');
 
-    searchBtn.addEventListener('click', () => searchYouTube(searchInput.value));
-    searchInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') searchYouTube(searchInput.value); });
+    searchBtn.addEventListener('click', () => handleSearch(searchInput.value));
+    searchInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleSearch(searchInput.value); });
+    searchInput.addEventListener('paste', () => {
+        setTimeout(() => {
+            const val = searchInput.value.trim();
+            const vid = extractVideoId(val);
+            if (vid) playVideo(vid);
+        }, 50);
+    });
 
     playBtn.addEventListener('click', togglePlay);
     prevBtn.addEventListener('click', () => { });
@@ -105,7 +114,7 @@ function initPlayer(videoId) {
     }
     player = new YT.Player('music-youtube-player', {
         videoId,
-        height: 120,
+        height: 180,
         width: '100%',
         playerVars: {
             autoplay: 1,
@@ -129,14 +138,28 @@ function initPlayer(videoId) {
     player.setVolume(vol);
 }
 
+function handleSearch(query) {
+    if (!query) return;
+    const vid = extractVideoId(query);
+    if (vid) {
+        playVideo(vid);
+        return;
+    }
+    searchYouTube(query);
+}
+
+function extractVideoId(input) {
+    if (!input) return null;
+    const trimmed = input.trim();
+    if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) return trimmed;
+    const match = trimmed.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+    return match ? match[1] : null;
+}
+
 function searchYouTube(query) {
     if (!query) return;
     saveState({ ...getState(), lastSearch: query });
-    const w = window.open(
-        `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`,
-        'youtube-search',
-        'width=800,height=600'
-    );
+    window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`, '_blank');
 }
 
 function togglePlay() {
