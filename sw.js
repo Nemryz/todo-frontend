@@ -1,4 +1,4 @@
-const CACHE_NAME    = 'infinity-todo-v4';
+const CACHE_NAME    = 'infinity-todo-v5';
 const CACHE_ASSETS  = [
     '/',
     '/index.html',
@@ -10,7 +10,6 @@ const CACHE_ASSETS  = [
     '/js/confetti.min.js',
 ];
 
-// ─── Install: pre-cachear assets estáticos ──────────────────────────────────
 self.addEventListener('install', event => {
     self.skipWaiting();
     event.waitUntil(
@@ -18,7 +17,6 @@ self.addEventListener('install', event => {
     );
 });
 
-// ─── Activate: limpiar cachés viejos ────────────────────────────────────────
 self.addEventListener('activate', event => {
     event.waitUntil(
         caches.keys().then(keys =>
@@ -27,45 +25,32 @@ self.addEventListener('activate', event => {
     );
 });
 
-// ─── Fetch: estrategia por tipo de recurso ───────────────────────────────────
 self.addEventListener('fetch', event => {
     const { request } = event;
     const url = new URL(request.url);
 
-    // Solo manejar peticiones del mismo origen (no Supabase, no externas)
     if (url.origin !== self.location.origin) return;
 
-    // Rutas de API: Network-First (datos dinámicos)
     if (url.pathname.startsWith('/api/')) {
         event.respondWith(networkFirst(request));
         return;
     }
 
-    // Assets estáticos: Cache-First
-    event.respondWith(cacheFirst(request));
+    event.respondWith(staleWhileRevalidate(request));
 });
 
-// Cache-First: sirve desde caché, fallback a red y actualiza caché
-async function cacheFirst(request) {
+async function staleWhileRevalidate(request) {
     const cached = await caches.match(request);
-    if (cached) return cached;
-    try {
-        const response = await fetch(request);
-        if (response.ok) {
-            const cache = await caches.open(CACHE_NAME);
-            cache.put(request, response.clone());
+    const fetchPromise = fetch(request).then(response => {
+        if (response && response.ok) {
+            caches.open(CACHE_NAME).then(cache => cache.put(request, response.clone()));
         }
         return response;
-    } catch {
-        // Offline fallback para navegación
-        if (request.mode === 'navigate') {
-            return caches.match('/index.html');
-        }
-        return new Response('Offline', { status: 503 });
-    }
+    }).catch(() => cached);
+
+    return cached || fetchPromise;
 }
 
-// Network-First: intenta red, fallback a caché si falla
 async function networkFirst(request) {
     try {
         const response = await fetch(request);
