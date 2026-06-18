@@ -28,6 +28,13 @@ function loadYouTubeAPI() {
     });
 }
 
+function playPauseHTML(playing) {
+    if (playing) {
+        return '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="3" y="2" width="4" height="12" rx="1"/><rect x="9" y="2" width="4" height="12" rx="1"/></svg>';
+    }
+    return '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><polygon points="3,1 14,8 3,15"/></svg>';
+}
+
 function render(playerEl) {
     container = playerEl;
     const state = getState();
@@ -41,13 +48,13 @@ function render(playerEl) {
                     <input type="text" class="music-search" placeholder="Buscar en YouTube..." value="${state.lastSearch || ''}">
                     <button class="music-search-btn" title="Buscar">🔍</button>
                 </div>
-                <div class="music-search-hint">Busca un video, pega el ID o URL de YouTube</div>
+                <div class="music-search-hint">Pega URL/ID de YouTube o busca por nombre</div>
             </div>
             <div class="music-player-area">
                 <div id="music-youtube-player" class="music-youtube-player"></div>
                 <div class="music-controls">
                     <button class="music-btn music-prev" title="Anterior">⏮</button>
-                    <button class="music-btn music-play-pause" title="Play/Pause">${isPlaying ? '⏸' : '▶️'}</button>
+                    <button class="music-btn music-play-pause" title="Play/Pause">${playPauseHTML(isPlaying)}</button>
                     <button class="music-btn music-next" title="Siguiente">⏭</button>
                     <input type="range" class="music-volume" min="0" max="100" value="${state.volume ?? 50}">
                 </div>
@@ -107,6 +114,14 @@ function render(playerEl) {
     renderPlaylists();
 }
 
+const ERROR_MSG = {
+    2: 'ID de video no válido',
+    5: 'Error de reproducción (HTML5 player)',
+    100: 'Video no encontrado o eliminado',
+    101: 'El video no permite reproducción embebida',
+    150: 'El video no permite reproducción embebida',
+};
+
 function initPlayer(videoId) {
     if (player) {
         player.loadVideoById(videoId);
@@ -123,19 +138,24 @@ function initPlayer(videoId) {
             rel: 0,
         },
         events: {
+            onReady: () => {
+                const vol = getState().volume ?? 50;
+                player.setVolume(vol);
+            },
             onStateChange: (e) => {
                 isPlaying = e.data === YT.PlayerState.PLAYING;
                 const btn = container?.querySelector('.music-play-pause');
-                if (btn) btn.textContent = isPlaying ? '⏸' : '▶️';
+                if (btn) btn.innerHTML = playPauseHTML(isPlaying);
                 if (e.data === YT.PlayerState.ENDED) {
                     // Auto-play next from playlist
                 }
             },
-            onError: () => { showToast('Error al reproducir video', 'error'); },
+            onError: (e) => {
+                const msg = ERROR_MSG[e.data] || 'Error desconocido al reproducir';
+                showToast(msg, 'error');
+            },
         },
     });
-    const vol = getState().volume ?? 50;
-    player.setVolume(vol);
 }
 
 function handleSearch(query) {
@@ -152,7 +172,7 @@ function extractVideoId(input) {
     if (!input) return null;
     const trimmed = input.trim();
     if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) return trimmed;
-    const match = trimmed.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+    const match = trimmed.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})(?:[?&#/]|$)/);
     return match ? match[1] : null;
 }
 
