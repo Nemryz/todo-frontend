@@ -1346,7 +1346,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         showArchived = sl.archived || false;
         activeFilter = sl.id === 'archived' ? 'archived' : 'all';
 
-        if (centerListIcon) centerListIcon.textContent = sl.icon;
+        if (centerListIcon) centerListIcon.innerHTML = sl.icon;
         if (centerListName) centerListName.textContent = sl.label;
 
         activeTag = null;
@@ -1393,7 +1393,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function updateCenterHeader() {
         const sl = SMART_LIST_MAP[activeSmartList] || SMART_LIST_MAP.all;
-        if (centerListIcon) centerListIcon.textContent = sl.icon;
+        if (centerListIcon) centerListIcon.innerHTML = sl.icon;
         if (centerListName) centerListName.textContent = sl.label;
         const count = sl.archived ? allTasks.filter(t => t.archived).length
             : sl.filter ? allTasks.filter(sl.filter).length : allTasks.length;
@@ -1404,7 +1404,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     function updateDrawer() {
         localStorage.setItem('todo-drawer', drawerOpen);
         panelRightDrawer.classList.toggle('open', drawerOpen);
-        if (panelRightToggle) panelRightToggle.textContent = drawerOpen ? '▶' : '◀';
+        if (panelRightToggle) panelRightToggle.innerHTML = drawerOpen ? icon('chevron-right', 16) : icon('chevron-left', 16);
     }
 
     function toggleDrawer() { drawerOpen = !drawerOpen; updateDrawer(); }
