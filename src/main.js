@@ -31,9 +31,10 @@ let sb, API_URL;
 async function loadConfig() {
     const res = await fetch('/api/config');
     if (!res.ok) throw new Error('No se pudo cargar la configuración del servidor');
-    const { supabaseUrl, supabaseAnonKey, apiUrl } = await res.json();
+    const { supabaseUrl, supabaseAnonKey, apiUrl, youtubeApiKey } = await res.json();
     API_URL = apiUrl;
     sb = supabase.createClient(supabaseUrl, supabaseAnonKey);
+    window.__YT_API_KEY = youtubeApiKey || '';
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -827,7 +828,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         btnMusic.classList.toggle('active', !shown);
         if (!shown && !musicWidgetInit) {
             musicWidgetInit = true;
-            musicWidget.render(document.getElementById('music-player-container'));
+            const cfg = { youtubeApiKey: window.__YT_API_KEY };
+            musicWidget.render(document.getElementById('music-player-container'), cfg);
         }
     });
     if (musicClose) musicClose.addEventListener('click', () => {
