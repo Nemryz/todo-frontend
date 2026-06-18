@@ -69,7 +69,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const datePreview   = document.getElementById('date-preview');
     const sortSelect    = document.getElementById('sort-select');
     const viewToggle    = document.getElementById('view-toggle');
-    const statsPanel    = document.getElementById('stats-panel');
+    const btnCalendar   = document.getElementById('btn-calendar');
+    const btnMusic      = document.getElementById('btn-music');
     const btnStats      = document.getElementById('btn-stats');
     const btnTypography = document.getElementById('btn-typography');
     const btnPomodoro   = document.getElementById('btn-pomodoro');
@@ -124,9 +125,42 @@ document.addEventListener('DOMContentLoaded', async () => {
     const pomodoroPhaseLabel = document.getElementById('pomodoro-phase-label');
     const pomodoroStop       = document.getElementById('pomodoro-stop');
 
+    // Phase 3 — Panel refs
+    const appLayout           = document.getElementById('app-layout');
+    const panelLeft           = document.getElementById('panel-left');
+    const panelRight          = document.getElementById('panel-right');
+    const smartListSection    = document.getElementById('smart-list-section');
+    const panelTags           = document.getElementById('panel-tags');
+    const centerListIcon      = document.getElementById('center-list-icon');
+    const centerListName      = document.getElementById('center-list-name');
+    const centerListBadge     = document.getElementById('center-list-badge');
+    const panelLeftToggle     = document.getElementById('panel-left-toggle');
+    const panelRightToggle    = document.getElementById('panel-right-toggle');
+    const panelRightClose     = document.getElementById('panel-right-close');
+    const concentradoBtn      = document.getElementById('concentrado-btn');
+    const nlpChips            = document.getElementById('nlp-chips');
+    const panelUserEmail      = document.getElementById('panel-user-email');
+    const panelLeftOverlay    = document.getElementById('panel-left-overlay');
+    const rightTabs           = document.querySelectorAll('.right-tab');
+    const tabCalendar         = document.getElementById('tab-calendar');
+    const tabMusic            = document.getElementById('tab-music');
+    const tabStats            = document.getElementById('tab-stats');
+
+    const SMART_LISTS = [
+        { id: 'today',    icon: '📅', label: 'Hoy',       filter: (t) => { const d = getTaskDate(t.id); if (!d) return false; const now = new Date(); return d.toDateString() === now.toDateString(); } },
+        { id: 'week',     icon: '⭐', label: 'Semana',    filter: (t) => { const d = getTaskDate(t.id); if (!d) return false; const now = new Date(); const end = new Date(now); end.setDate(end.getDate() + (7 - end.getDay())); return d >= new Date(now.toDateString()) && d <= end; } },
+        { id: 'overdue',  icon: '🔥', label: 'Vencidas',  filter: (t) => { const d = getTaskDate(t.id); if (!d) return false; return d < new Date(new Date().toDateString()) && !t.completed; } },
+        { id: 'all',      icon: '📋', label: 'Todas',     filter: null },
+        { id: 'pending',  icon: '⏳', label: 'Pendientes', filter: (t) => !t.completed },
+        { id: 'done',     icon: '✅', label: 'Completadas',filter: (t) => t.completed },
+        { id: 'archived', icon: '📦', label: 'Archivadas', filter: null, archived: true },
+    ];
+    const SMART_LIST_MAP = Object.fromEntries(SMART_LISTS.map(s => [s.id, s]));
+
     // ─── Estado ─────────────────────────────────────────────
     let allTasks        = [];
     let activeFilter    = 'all';
+    let activeSmartList = 'all';
     let showArchived    = false;
     let searchQuery     = '';
     let sortOrder       = 'default';
@@ -136,9 +170,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     let focusMode       = false;
     let undoStack       = [];
     let viewMode        = localStorage.getItem('todo-view') || 'list';
-    let statsVisible    = false;
     let activeTag       = null;
     let compactMode     = localStorage.getItem('todo-compact') === 'true';
+    let panelLeftOpen   = localStorage.getItem('todo-panel-left') !== 'false';
+    let panelRightOpen  = localStorage.getItem('todo-panel-right') === 'true';
+
 
     // Pomodoro state
     let pomodoroInterval  = null;
@@ -667,15 +703,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function setActiveTag(tag) {
         activeTag = tag;
+        updatePanelTags();
         const indicator = document.getElementById('active-tag-indicator');
         if (indicator) indicator.remove();
         if (tag) {
             const chip = document.createElement('div');
             chip.id = 'active-tag-indicator';
             chip.className = 'active-tag-indicator';
-            chip.innerHTML = `Filtrando: <strong>${tag}</strong> <span class="active-tag-clear" title="Quitar filtro">✕</span>`;
-            chip.querySelector('.active-tag-clear').addEventListener('click', () => setActiveTag(null));
-            document.querySelector('.filter-bar').after(chip);
+            chip.textContent = `🏷️ ${tag}`;
+            chip.addEventListener('click', () => setActiveTag(null));
+            document.querySelector('.app-container')?.prepend(chip);
         }
         applyFilter();
     }
@@ -805,37 +842,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     pomodoroStop.addEventListener('click', () => stopPomodoro());
 
     // ─────────────────────────────────────────────
-    // 38. PANEL DE ESTADÍSTICAS
+    // RIGHT PANEL — TABS
     // ─────────────────────────────────────────────
-    if (btnStats) btnStats.addEventListener('click', () => {
-        statsVisible = !statsVisible;
-        statsPanel.style.display = statsVisible ? 'block' : 'none';
-        btnStats.classList.toggle('active', statsVisible);
-        if (statsVisible) renderStats();
-    });
-
-    // ─────────────────────────────────────────────
-    // WIDGET DE MÚSICA
-    // ─────────────────────────────────────────────
-    const musicPanel  = document.getElementById('music-panel');
-    const btnMusic    = document.getElementById('btn-music');
-    const musicClose  = document.getElementById('music-close');
     let musicWidgetInit = false;
 
-    if (btnMusic) btnMusic.addEventListener('click', () => {
-        const shown = musicPanel.style.display === 'block';
-        musicPanel.style.display = shown ? 'none' : 'block';
-        btnMusic.classList.toggle('active', !shown);
-        if (!shown && !musicWidgetInit) {
+    function switchRightTab(tabId) {
+        rightTabs.forEach(t => t.classList.toggle('active', t.dataset.tab === tabId));
+        [tabCalendar, tabMusic, tabStats].forEach(el => el.classList.toggle('active', el.id === `tab-${tabId}`));
+        if (tabId === 'stats') renderStats();
+        if (tabId === 'music' && !musicWidgetInit) {
             musicWidgetInit = true;
             const cfg = { youtubeApiKey: window.__YT_API_KEY };
             musicWidget.render(document.getElementById('music-player-container'), cfg);
         }
-    });
-    if (musicClose) musicClose.addEventListener('click', () => {
-        musicPanel.style.display = 'none';
-        btnMusic.classList.remove('active');
-    });
+        if (!panelRightOpen) {
+            panelRightOpen = true;
+            updatePanelState();
+        }
+    }
+
+    rightTabs.forEach(tab => tab.addEventListener('click', () => switchRightTab(tab.dataset.tab)));
 
     function renderStats() {
         const history = JSON.parse(localStorage.getItem('todo-history') || '[]');
@@ -871,17 +897,25 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('stat-pomodoros').textContent = getPomodoroTotal() + pomodoroCompleted;
     }
 
-    // ─────────────────────────────────────────────
-    // 39. CALENDARIO
-    // ─────────────────────────────────────────────
-    const calendarPanel = document.getElementById('calendar-panel');
-    const btnCalendar   = document.getElementById('btn-calendar');
+    if (btnCalendar) btnCalendar.addEventListener('click', () => {
+        if (!panelRightOpen || tabCalendar.classList.contains('active')) { togglePanelRight(); }
+        else { switchRightTab('calendar'); }
+    });
+    if (btnMusic) btnMusic.addEventListener('click', () => {
+        if (!panelRightOpen || tabMusic.classList.contains('active')) { togglePanelRight(); }
+        else { switchRightTab('music'); }
+    });
+    if (btnStats) btnStats.addEventListener('click', () => {
+        if (!panelRightOpen || tabStats.classList.contains('active')) { togglePanelRight(); }
+        else { switchRightTab('stats'); }
+    });
+
+    // ─── Calendar ───
     const calGrid       = document.getElementById('cal-grid');
     const calTitle      = document.getElementById('cal-title');
     const calPrev       = document.getElementById('cal-prev');
     const calNext       = document.getElementById('cal-next');
     const calToday      = document.getElementById('cal-today');
-    const calClose      = document.getElementById('cal-close');
     const calTasks      = document.getElementById('cal-tasks');
     const calTasksDate  = document.getElementById('cal-tasks-date');
     const calTasksCount = document.getElementById('cal-tasks-count');
@@ -890,7 +924,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     let calYear  = new Date().getFullYear();
     let calMonth = new Date().getMonth();
     let calSelected = null;
-    let calendarVisible = false;
 
     const MONTHS_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
@@ -980,31 +1013,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function openCalendar() {
-        calendarVisible = true;
-        calendarPanel.style.display = 'block';
-        btnCalendar.classList.add('active');
-        renderCalendar(calYear, calMonth);
+        switchRightTab('calendar');
     }
 
-    function closeCalendar() {
-        calendarVisible = false;
-        calendarPanel.style.display = 'none';
-        btnCalendar.classList.remove('active');
-        calTasks.style.display = 'none';
-        calSelected = null;
-        if (activeFilter !== 'all') {
-            const filterAll = document.getElementById('filter-all');
-            if (filterAll) filterAll.click();
-        }
-    }
-
-    if (btnCalendar) btnCalendar.addEventListener('click', () => {
-        calendarVisible ? closeCalendar() : openCalendar();
-    });
-    if (calClose) calClose.addEventListener('click', closeCalendar);
     const calShowAll = document.getElementById('cal-show-all');
     if (calShowAll) calShowAll.addEventListener('click', () => {
-        closeCalendar();
         const filterAll = document.getElementById('filter-all');
         if (filterAll) filterAll.click();
     });
@@ -1041,7 +1054,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         { label:'Modo compacto',           icon:'⊟',  action: () => { closeCommandPalette(); toggleCompactMode(); } },
         { label:'Iniciar / detener Pomodoro', icon:'⏱', action: () => { closeCommandPalette(); if (pomodoroInterval) stopPomodoro(); else startPomodoro(); } },
         { label:'Tipografía',              icon:'Aa', action: () => { closeCommandPalette(); btnTypography.click(); } },
-        { label:'Estadísticas',            icon:'📊', action: () => { closeCommandPalette(); btnStats.click(); } },
+        { label:'Estadísticas',            icon:'📊', action: () => { closeCommandPalette(); switchRightTab('stats'); } },
         { label:'Exportar tareas',         icon:'↓',  action: () => { closeCommandPalette(); openExportModal(); } },
         { label:'Modo enfoque',            icon:'👁', action: () => { closeCommandPalette(); toggleFocusMode(); } },
         { label:'Atajos de teclado',       icon:'⌨️', action: () => { closeCommandPalette(); openShortcuts(); } },
@@ -1213,26 +1226,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (e.key === 'p' || e.key === 'P') { e.preventDefault(); if (pomodoroInterval) stopPomodoro(); else startPomodoro(); return; }
         if (e.key === 'e' || e.key === 'E') { e.preventDefault(); openExportModal(); return; }
         if (e.key === '?') { e.preventDefault(); openShortcuts(); return; }
+        if (e.key === 'b') { e.preventDefault(); togglePanelLeft(); return; }
+        if (e.key === 'B') { e.preventDefault(); togglePanelRight(); return; }
         if (e.key === '1') { e.preventDefault(); document.getElementById('filter-all').click(); return; }
         if (e.key === '2') { e.preventDefault(); document.getElementById('filter-pending').click(); return; }
         if (e.key === '3') { e.preventDefault(); document.getElementById('filter-done').click(); return; }
     });
 
     // ─────────────────────────────────────────────
-    // FILTROS
+    // FILTROS (legacy filter-btn click routing → smart lists)
     // ─────────────────────────────────────────────
-    const savedFilter = localStorage.getItem('todo-filter') || 'all';
-    activeFilter = savedFilter;
-    showArchived = savedFilter === 'archived';
     filterBtns.forEach(btn => {
-        btn.classList.toggle('active', btn.id === `filter-${savedFilter}`);
         btn.addEventListener('click', () => {
-            filterBtns.forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            activeFilter = btn.id.replace('filter-', '');
-            showArchived = activeFilter === 'archived';
-            localStorage.setItem('todo-filter', activeFilter);
-            loadTasks();
+            const id = btn.id.replace('filter-', '');
+            const map = { all: 'all', pending: 'pendientes', done: 'done' };
+            const smartId = map[id] || 'all';
+            setActiveSmartList(smartId);
         });
     });
 
@@ -1240,8 +1249,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function applyFilter() {
         let filtered = allTasks;
-        if (activeFilter === 'pending') filtered = allTasks.filter(t => !t.completed);
-        if (activeFilter === 'done')    filtered = allTasks.filter(t => t.completed);
+        const sl = SMART_LIST_MAP[activeSmartList];
+        if (sl && sl.filter) filtered = allTasks.filter(sl.filter);
+        else if (activeFilter === 'pending') filtered = allTasks.filter(t => !t.completed);
+        else if (activeFilter === 'done')    filtered = allTasks.filter(t => t.completed);
+        if (showArchived && activeSmartList !== 'archived') filtered = filtered.filter(t => t.archived);
+        if (!showArchived && activeSmartList !== 'archived') filtered = filtered.filter(t => !t.archived);
         if (searchQuery) filtered = filtered.filter(t => t.text.toLowerCase().includes(searchQuery));
         if (activeTag)   filtered = filtered.filter(t => parseTags(t.text).includes(activeTag));
         filtered = sortTasks(filtered);
@@ -1287,6 +1300,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
+    input.addEventListener('input', () => {
+        updateNlpChips(input.value);
+    });
+
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
         const text = input.value.trim();
@@ -1299,6 +1316,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         charCounter.className = 'char-counter';
         datePreview.textContent = '';
         datePreview.style.display = 'none';
+        if (nlpChips) nlpChips.innerHTML = '';
     });
 
     // ─────────────────────────────────────────────
@@ -1307,6 +1325,165 @@ document.addEventListener('DOMContentLoaded', async () => {
     function launchConfetti() {
         if (typeof confetti === 'function') {
             confetti({ particleCount: 100, spread: 80, origin: { y: 0.6 }, colors: ['#9333ea','#6366f1','#f472b6','#10b981'] });
+        }
+    }
+
+    // ─────────────────────────────────────────────
+    // SMART LIST SIDEBAR
+    // ─────────────────────────────────────────────
+    function renderSmartLists() {
+        const counts = {};
+        SMART_LISTS.forEach(sl => {
+            if (sl.archived) return;
+            const filtered = sl.filter ? allTasks.filter(sl.filter) : allTasks;
+            counts[sl.id] = filtered.length;
+        });
+        const archivedCount = allTasks.filter(t => t.archived).length;
+
+        smartListSection.innerHTML = SMART_LISTS.map(sl => `
+            <button class="smart-list-item${activeSmartList === sl.id ? ' active' : ''}" data-smart="${sl.id}">
+                <span class="smart-list-icon">${sl.icon}</span>
+                <span class="smart-list-name">${sl.label}</span>
+                <span class="smart-list-badge">${sl.id === 'archived' ? archivedCount : counts[sl.id] || 0}</span>
+            </button>
+        `).join('');
+
+        smartListSection.querySelectorAll('.smart-list-item').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const id = btn.dataset.smart;
+                setActiveSmartList(id);
+            });
+        });
+    }
+
+    function setActiveSmartList(id) {
+        activeSmartList = id;
+        const sl = SMART_LIST_MAP[id];
+        if (!sl) return;
+        showArchived = sl.archived || false;
+        activeFilter = sl.id === 'archived' ? 'archived' : 'all';
+
+        if (centerListIcon) centerListIcon.textContent = sl.icon;
+        if (centerListName) centerListName.textContent = sl.label;
+
+        activeTag = null;
+        updatePanelTags();
+
+        const count = sl.archived ? allTasks.filter(t => t.archived).length
+            : sl.filter ? allTasks.filter(sl.filter).length : allTasks.length;
+        if (centerListBadge) centerListBadge.textContent = count;
+
+        loadTasks();
+        renderSmartLists();
+    }
+
+    function renderTags() {
+        if (!panelTags) return;
+        const tagMap = {};
+        allTasks.forEach(t => {
+            const tags = parseTags(t.text);
+            tags.forEach(tag => { tagMap[tag] = (tagMap[tag] || 0) + 1; });
+        });
+        const tags = Object.entries(tagMap).sort((a, b) => b[1] - a[1]);
+        panelTags.innerHTML = tags.length
+            ? tags.map(([tag, count]) => `
+                <button class="panel-tag-item${activeTag === tag ? ' active' : ''}" data-tag="${tag}">
+                    <span>${tag}</span>
+                    <span class="panel-tag-badge">${count}</span>
+                </button>
+            `).join('')
+            : '';
+        panelTags.querySelectorAll('.panel-tag-item').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tag = btn.dataset.tag;
+                setActiveTag(activeTag === tag ? null : tag);
+                updatePanelTags();
+            });
+        });
+    }
+
+    function updatePanelTags() {
+        panelTags?.querySelectorAll('.panel-tag-item').forEach(el => {
+            el.classList.toggle('active', el.dataset.tag === activeTag);
+        });
+    }
+
+    function updateCenterHeader() {
+        const sl = SMART_LIST_MAP[activeSmartList] || SMART_LIST_MAP.all;
+        if (centerListIcon) centerListIcon.textContent = sl.icon;
+        if (centerListName) centerListName.textContent = sl.label;
+        const count = sl.archived ? allTasks.filter(t => t.archived).length
+            : sl.filter ? allTasks.filter(sl.filter).length : allTasks.length;
+        if (centerListBadge) centerListBadge.textContent = count;
+    }
+
+    // ─── Panel toggle ───
+    function updatePanelState() {
+        localStorage.setItem('todo-panel-left', panelLeftOpen);
+        localStorage.setItem('todo-panel-right', panelRightOpen);
+        appLayout.classList.toggle('panel-left-hidden', !panelLeftOpen);
+        appLayout.classList.toggle('panel-right-hidden', !panelRightOpen);
+        if (panelLeftToggle) panelLeftToggle.textContent = panelLeftOpen ? '◀' : '▶';
+        if (panelRightToggle) panelRightToggle.textContent = panelRightOpen ? '▶' : '◀';
+    }
+
+    function togglePanelLeft() { panelLeftOpen = !panelLeftOpen; updatePanelState(); }
+    function togglePanelRight() { panelRightOpen = !panelRightOpen; updatePanelState(); }
+
+    if (panelLeftToggle) panelLeftToggle.addEventListener('click', togglePanelLeft);
+    if (panelRightToggle) panelRightToggle.addEventListener('click', togglePanelRight);
+    if (panelRightClose) panelRightClose.addEventListener('click', () => { panelRightOpen = false; updatePanelState(); });
+    if (panelLeftOverlay) panelLeftOverlay.addEventListener('click', togglePanelLeft);
+
+    // Mobile: open left panel via overlay
+    if (panelLeftOverlay) {
+        panelLeft.addEventListener('click', (e) => {
+            if (window.innerWidth <= 768 && e.target === panelLeft) togglePanelLeft();
+        });
+    }
+
+    // ─── Concentrado ───
+    if (concentradoBtn) concentradoBtn.addEventListener('click', toggleFocusMode);
+
+    updatePanelState();
+
+    // ─── NLP Chips ───
+    function updateNlpChips(text) {
+        if (!nlpChips) return;
+        nlpChips.innerHTML = '';
+        const date = parseNaturalDate(text);
+        if (date) {
+            const chip = document.createElement('span');
+            chip.className = 'nlp-chip nlp-chip-date';
+            chip.textContent = `📅 ${formatDateShort(date)}`;
+            nlpChips.appendChild(chip);
+        }
+        const priorityMatch = text.match(/!(\w+)/);
+        if (priorityMatch) {
+            const p = priorityMatch[1].toLowerCase();
+            if (['alta', 'high', 'urgente'].includes(p)) {
+                const chip = document.createElement('span');
+                chip.className = 'nlp-chip nlp-chip-priority';
+                chip.textContent = '🔴 Alta prioridad';
+                nlpChips.appendChild(chip);
+            } else if (['media', 'medium', 'normal'].includes(p)) {
+                const chip = document.createElement('span');
+                chip.className = 'nlp-chip nlp-chip-priority';
+                chip.textContent = '🟡 Prioridad media';
+                nlpChips.appendChild(chip);
+            } else if (['baja', 'low', 'poca'].includes(p)) {
+                const chip = document.createElement('span');
+                chip.className = 'nlp-chip nlp-chip-priority';
+                chip.textContent = '🟢 Baja prioridad';
+                nlpChips.appendChild(chip);
+            }
+        }
+        const recMatch = text.match(/(cada|todos los|todas las)\s+(d[ií]a|d[ií]as|semana|semanas|mes|meses)/i);
+        if (recMatch) {
+            const chip = document.createElement('span');
+            chip.className = 'nlp-chip nlp-chip-recurrence';
+            chip.textContent = '↻ Recurrente';
+            nlpChips.appendChild(chip);
         }
     }
 
@@ -1321,7 +1498,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (!res.ok) throw new Error();
             allTasks = await res.json();
             applyFilter();
-            if (statsVisible) renderStats();
+            renderSmartLists();
+            renderTags();
+            updateCenterHeader();
         } catch {
             showToast('No se pudo conectar al servidor', 'error');
             todoList.innerHTML = `<li class="empty-msg" style="color:var(--danger)">🚨 Error de conexión</li>`;
@@ -1374,7 +1553,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (pending === 0 && allTasks.length > 0) { showToast('¡Todas completadas! 🎉', 'magic'); launchConfetti(); }
                 else if (completedStreak === 3) { showToast('¡Estás on fire! 🔥', 'fire'); completedStreak = 0; }
                 else showToast('¡Una menos!', 'success');
-                if (statsVisible) renderStats();
                 const rec = getRecurrence(id);
                 if (rec !== 'none') {
                     const taskText = allTasks[idx]?.text || '';
