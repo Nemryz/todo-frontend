@@ -216,6 +216,7 @@
                     <button id="theme-sunset"    class="theme-btn" title="Sunset">🌅</button>
                     <button id="theme-contrast"  class="theme-btn" title="Alto Contraste">◑</button>
                     <button id="btn-typography"  class="theme-btn" title="Tipografía">Aa</button>
+                    <button id="btn-calendar"   class="theme-btn" title="Calendario">📅</button>
                     <button id="btn-stats"       class="theme-btn" title="Estadísticas">📊</button>
                     <button id="btn-shortcuts"   class="theme-btn" title="Atajos de teclado (?)">⌨</button>
                     <button id="btn-logout"      class="theme-btn" title="Cerrar sesión">🚪</button>
@@ -268,6 +269,9 @@
                     <button id="filter-done" class="filter-btn">
                         Completadas <span id="badge-done" class="filter-badge">0</span>
                     </button>
+                    <button id="filter-archived" class="filter-btn">
+                        📦 Archivadas <span id="badge-archived" class="filter-badge">0</span>
+                    </button>
                 </div>
 
                 <div class="progress-container" id="progress-container">
@@ -277,6 +281,28 @@
                     </div>
                     <div class="progress-track">
                         <div class="progress-bar" id="progress-bar"></div>
+                    </div>
+                </div>
+
+                <!-- Panel de calendario (colapsable) -->
+                <div id="calendar-panel" class="calendar-panel" style="display:none;">
+                    <div class="calendar-header">
+                        <button id="cal-prev" class="cal-nav-btn">‹</button>
+                        <span id="cal-title" class="cal-title"></span>
+                        <button id="cal-next" class="cal-nav-btn">›</button>
+                        <button id="cal-today" class="cal-today-btn">Hoy</button>
+                        <button id="cal-close" class="close-btn">✕</button>
+                    </div>
+                    <div class="cal-weekdays">
+                        <span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span><span>Dom</span>
+                    </div>
+                    <div id="cal-grid" class="cal-grid"></div>
+                    <div id="cal-tasks" class="cal-tasks" style="display:none;">
+                        <div class="cal-tasks-header">
+                            <span id="cal-tasks-date" class="cal-tasks-date"></span>
+                            <span id="cal-tasks-count" class="cal-tasks-count"></span>
+                        </div>
+                        <ul id="cal-tasks-list" class="cal-tasks-list"></ul>
                     </div>
                 </div>
 
@@ -312,7 +338,13 @@
 
                 <div class="list-controls" id="list-controls" style="display:none;">
                     <button id="toggle-all-btn" class="control-btn">☑️ Marcar todas</button>
-                    <button id="clear-btn" class="control-btn danger-btn">🗑️ Limpiar completadas</button>
+                    <span class="manage-wrapper">
+                        <button id="clear-btn" class="control-btn">📦 Gestionar completadas</button>
+                        <div id="manage-dropdown" class="manage-dropdown">
+                            <button id="manage-archive" class="manage-dropdown-item">📦 Archivar todas</button>
+                            <button id="manage-delete" class="manage-dropdown-item danger">🗑️ Eliminar permanentemente</button>
+                        </div>
+                    </span>
                     <button id="btn-export" class="control-btn" title="Exportar tareas (E)">↓ Exportar</button>
                 </div>
 

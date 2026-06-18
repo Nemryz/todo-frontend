@@ -99,6 +99,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // ─── Estado ─────────────────────────────────────────────
     let allTasks        = [];
     let activeFilter    = 'all';
+    let showArchived    = false;
     let searchQuery     = '';
     let sortOrder       = 'default';
     let confirmTimer    = null;
@@ -624,8 +625,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         const dates = getTaskDates();
         if (date) dates[taskId] = date.toISOString(); else delete dates[taskId];
         localStorage.setItem('todo-dates', JSON.stringify(dates));
+        if (currentSession) apiSetTaskDate(taskId, date ? date.toISOString().slice(0, 10) : null);
     }
     function getTaskDate(taskId) {
+        const task = allTasks.find(t => t.id === taskId);
+        if (task?.due_date) return new Date(task.due_date);
         const dates = getTaskDates();
         return dates[taskId] ? new Date(dates[taskId]) : null;
     }
@@ -977,6 +981,150 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // ─────────────────────────────────────────────
+    // 39. CALENDARIO
+    // ─────────────────────────────────────────────
+    const calendarPanel = document.getElementById('calendar-panel');
+    const btnCalendar   = document.getElementById('btn-calendar');
+    const calGrid       = document.getElementById('cal-grid');
+    const calTitle      = document.getElementById('cal-title');
+    const calPrev       = document.getElementById('cal-prev');
+    const calNext       = document.getElementById('cal-next');
+    const calToday      = document.getElementById('cal-today');
+    const calClose      = document.getElementById('cal-close');
+    const calTasks      = document.getElementById('cal-tasks');
+    const calTasksDate  = document.getElementById('cal-tasks-date');
+    const calTasksCount = document.getElementById('cal-tasks-count');
+    const calTasksList  = document.getElementById('cal-tasks-list');
+
+    let calYear  = new Date().getFullYear();
+    let calMonth = new Date().getMonth();
+    let calSelected = null;
+    let calendarVisible = false;
+
+    const MONTHS_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+    function getTasksByDate() {
+        const map = {};
+        for (const t of allTasks) {
+            const d = getTaskDate(t.id);
+            if (d) {
+                const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+                if (!map[key]) map[key] = [];
+                map[key].push(t);
+            }
+        }
+        return map;
+    }
+
+    function renderCalendar(year, month) {
+        calGrid.innerHTML = '';
+        calTitle.textContent = `${MONTHS_ES[month]} ${year}`;
+        const firstDay = new Date(year, month, 1);
+        const lastDay  = new Date(year, month + 1, 0);
+        const startDow = (firstDay.getDay() + 6) % 7;
+        const tasksByDate = getTasksByDate();
+        const today = new Date();
+
+        for (let i = 0; i < startDow; i++) {
+            const el = document.createElement('div');
+            el.className = 'cal-day cal-day-empty';
+            calGrid.appendChild(el);
+        }
+
+        for (let d = 1; d <= lastDay.getDate(); d++) {
+            const dateObj = new Date(year, month, d);
+            const key = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+            const hasTasks = key in tasksByDate;
+            const isToday = year === today.getFullYear() && month === today.getMonth() && d === today.getDate();
+            const isSelected = calSelected === key;
+
+            const el = document.createElement('div');
+            el.className = `cal-day${isToday ? ' cal-day-today' : ''}${isSelected ? ' cal-day-selected' : ''}${hasTasks ? ' cal-day-has-tasks' : ''}`;
+            el.textContent = d;
+            if (hasTasks) {
+                const dot = document.createElement('span');
+                dot.className = 'cal-day-dot';
+                el.appendChild(dot);
+            }
+            el.addEventListener('click', () => showDayTasks(key, tasksByDate));
+            calGrid.appendChild(el);
+        }
+    }
+
+    function showDayTasks(key, tasksByDate) {
+        calSelected = key;
+        renderCalendar(calYear, calMonth);
+        const tasks = tasksByDate[key] || [];
+        if (!tasks.length) {
+            calTasks.style.display = 'none';
+            return;
+        }
+        calTasks.style.display = 'block';
+        const [y, m, d] = key.split('-').map(Number);
+        const dateObj = new Date(y, m - 1, d);
+        calTasksDate.textContent = dateObj.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        calTasksCount.textContent = `${tasks.length} tarea(s)`;
+        calTasksList.innerHTML = '';
+        tasks.forEach(t => {
+            const li = document.createElement('li');
+            li.className = `cal-task-item${t.completed ? ' done' : ''}`;
+            li.innerHTML = `
+                <span class="cal-task-check">${t.completed ? '✅' : '⬜'}</span>
+                <span class="cal-task-text">${escapeHTML(t.text)}</span>
+            `;
+            li.addEventListener('click', () => {
+                closeCalendar();
+                searchInput.value = t.text.slice(0, 20);
+                searchQuery = t.text.slice(0, 20).toLowerCase();
+                applyFilter();
+            });
+            calTasksList.appendChild(li);
+        });
+    }
+
+    function openCalendar() {
+        calendarVisible = true;
+        calendarPanel.style.display = 'block';
+        btnCalendar.classList.add('active');
+        renderCalendar(calYear, calMonth);
+    }
+
+    function closeCalendar() {
+        calendarVisible = false;
+        calendarPanel.style.display = 'none';
+        btnCalendar.classList.remove('active');
+        calTasks.style.display = 'none';
+        calSelected = null;
+    }
+
+    if (btnCalendar) btnCalendar.addEventListener('click', () => {
+        calendarVisible ? closeCalendar() : openCalendar();
+    });
+    if (calClose) calClose.addEventListener('click', closeCalendar);
+    if (calPrev) calPrev.addEventListener('click', () => {
+        calMonth--;
+        if (calMonth < 0) { calMonth = 11; calYear--; }
+        calSelected = null;
+        calTasks.style.display = 'none';
+        renderCalendar(calYear, calMonth);
+    });
+    if (calNext) calNext.addEventListener('click', () => {
+        calMonth++;
+        if (calMonth > 11) { calMonth = 0; calYear++; }
+        calSelected = null;
+        calTasks.style.display = 'none';
+        renderCalendar(calYear, calMonth);
+    });
+    if (calToday) calToday.addEventListener('click', () => {
+        const now = new Date();
+        calYear = now.getFullYear();
+        calMonth = now.getMonth();
+        calSelected = null;
+        calTasks.style.display = 'none';
+        renderCalendar(calYear, calMonth);
+    });
+
+    // ─────────────────────────────────────────────
     // PALETA DE COMANDOS (Ctrl+K)
     // ─────────────────────────────────────────────
     const COMMANDS = [
@@ -1066,22 +1214,44 @@ document.addEventListener('DOMContentLoaded', async () => {
     commandPalette.addEventListener('click', (e) => { if (e.target === commandPalette) closeCommandPalette(); });
 
     // ─────────────────────────────────────────────
-    // LIMPIAR COMPLETADAS
+    // GESTIONAR COMPLETADAS (archivar / eliminar)
     // ─────────────────────────────────────────────
-    clearBtn.addEventListener('click', async () => {
-        if (!clearBtn.classList.contains('confirming')) {
-            clearBtn.classList.add('confirming');
-            clearBtn.textContent = '⚠️ ¿Confirmar? (clic de nuevo)';
-            confirmTimer = setTimeout(() => { clearBtn.classList.remove('confirming'); clearBtn.textContent = '🗑️ Limpiar completadas'; }, 3000);
-        } else {
-            clearTimeout(confirmTimer);
-            clearBtn.classList.remove('confirming');
-            clearBtn.textContent = '🗑️ Limpiar completadas';
-            const completed = allTasks.filter(t => t.completed);
-            await Promise.all(completed.map(t => authFetch(`${API_URL}/tasks/${t.id}`, { method: 'DELETE' })));
-            await loadTasks();
-            showToast(`${completed.length} tareas eliminadas 🧹`, 'magic');
+    function closeManageDropdown(e) {
+        const dd = document.getElementById('manage-dropdown');
+        if (dd && !dd.closest('.manage-wrapper')?.contains(e.target)) {
+            dd.classList.remove('show');
+            document.removeEventListener('click', closeManageDropdown);
         }
+    }
+
+    clearBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const dd = document.getElementById('manage-dropdown');
+        if (dd.classList.contains('show')) {
+            dd.classList.remove('show');
+            document.removeEventListener('click', closeManageDropdown);
+            return;
+        }
+        dd.classList.add('show');
+        setTimeout(() => document.addEventListener('click', closeManageDropdown), 10);
+    });
+
+    document.getElementById('manage-delete').addEventListener('click', async () => {
+        document.getElementById('manage-dropdown').classList.remove('show');
+        const completed = allTasks.filter(t => t.completed);
+        if (!completed.length) { showToast('No hay tareas completadas', 'info'); return; }
+        await Promise.all(completed.map(t => authFetch(`${API_URL}/tasks/${t.id}`, { method: 'DELETE' })));
+        await loadTasks();
+        showToast(`${completed.length} tareas eliminadas 🧹`, 'magic');
+    });
+
+    document.getElementById('manage-archive').addEventListener('click', async () => {
+        document.getElementById('manage-dropdown').classList.remove('show');
+        const completed = allTasks.filter(t => t.completed);
+        if (!completed.length) { showToast('No hay tareas completadas', 'info'); return; }
+        await Promise.all(completed.map(t => apiArchiveTask(t.id)));
+        await loadTasks();
+        showToast(`${completed.length} tareas archivadas 📦`, 'info');
     });
 
     // MARCAR TODAS
@@ -1146,14 +1316,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     // ─────────────────────────────────────────────
     const savedFilter = localStorage.getItem('todo-filter') || 'all';
     activeFilter = savedFilter;
+    showArchived = savedFilter === 'archived';
     filterBtns.forEach(btn => {
         btn.classList.toggle('active', btn.id === `filter-${savedFilter}`);
         btn.addEventListener('click', () => {
             filterBtns.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             activeFilter = btn.id.replace('filter-', '');
+            showArchived = activeFilter === 'archived';
             localStorage.setItem('todo-filter', activeFilter);
-            applyFilter();
+            loadTasks();
         });
     });
 
@@ -1169,7 +1341,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         todoList.innerHTML = '';
         if (!filtered.length) {
-            todoList.innerHTML = `<li class="empty-msg">✨ No hay tareas aquí</li>`;
+            const msg = showArchived ? '📦 No hay tareas archivadas' : '✨ No hay tareas aquí';
+            todoList.innerHTML = `<li class="empty-msg">${msg}</li>`;
         } else {
             filtered.forEach((todo, i) => {
                 const li = renderTodoItem(todo);
@@ -1236,7 +1409,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     async function loadTasks() {
         try {
             showLoading();
-            const res = await authFetch(`${API_URL}/tasks`);
+            const url = showArchived ? `${API_URL}/tasks?archived=true` : `${API_URL}/tasks`;
+            const res = await authFetch(url);
             if (!res.ok) throw new Error();
             allTasks = await res.json();
             applyFilter();
@@ -1318,20 +1492,34 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    async function deleteTodo(id, element) {
+    async function archiveTodo(id, element) {
         playSound('delete');
-        const backup = allTasks.find(t => t.id === id);
+        const task = allTasks.find(t => t.id === id);
+        if (!task) return;
+        element.style.animation = 'fadeOut 0.3s ease forwards';
+        if (task) logActivity('archivar', task.text);
+        setTimeout(() => applyFilter(), 300);
+        try {
+            await apiArchiveTask(id);
+            showToast('Tarea archivada 📦', 'info', 'Deshacer', async () => {
+                try { await apiRestoreTask(id); await loadTasks(); showToast('Tarea restaurada', 'success'); }
+                catch { showToast('Error al restaurar', 'error'); }
+            });
+        } catch {
+            showToast('Error al archivar', 'error');
+        }
+    }
+
+    async function deleteTodoPermanent(id, element) {
+        playSound('delete');
         allTasks = allTasks.filter(t => t.id !== id);
         element.style.animation = 'fadeOut 0.3s ease forwards';
-        if (backup) logActivity('eliminar', backup.text);
         setTimeout(() => applyFilter(), 300);
         try {
             const res = await authFetch(`${API_URL}/tasks/${id}`, { method: 'DELETE' });
             if (!res.ok) throw new Error();
-            if (backup) pushUndo({ type: 'delete', task: backup });
-            showToast('Tarea eliminada', 'warning', 'Deshacer', () => undoLastAction());
+            showToast('Tarea eliminada permanentemente 🗑️', 'warning');
         } catch {
-            if (backup) { allTasks.push(backup); applyFilter(); }
             showToast('No se pudo eliminar', 'error');
         }
     }
@@ -1354,6 +1542,25 @@ document.addEventListener('DOMContentLoaded', async () => {
         } catch { showToast('Error al guardar el texto', 'error'); }
     }
 
+    // ─── Archive / Restore / Date ─────────────────
+    async function apiArchiveTask(id) {
+        const res = await authFetch(`${API_URL}/tasks/${id}/archive`, { method: 'PUT' });
+        if (!res.ok) throw new Error();
+        return res.json();
+    }
+
+    async function apiRestoreTask(id) {
+        const res = await authFetch(`${API_URL}/tasks/${id}/restore`, { method: 'PUT' });
+        if (!res.ok) throw new Error();
+        return res.json();
+    }
+
+    async function apiSetTaskDate(id, dueDate) {
+        const res = await authFetch(`${API_URL}/tasks/${id}/date`, { method: 'PATCH', body: JSON.stringify({ due_date: dueDate }) });
+        if (!res.ok) throw new Error();
+        return res.json();
+    }
+
     // ─────────────────────────────────────────────
     // RENDERIZADO
     // ─────────────────────────────────────────────
@@ -1367,8 +1574,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function renderTodoItem(todo) {
+        const isArchived = showArchived;
         const li = document.createElement('li');
-        li.className = `todo-item ${todo.completed ? 'completed' : ''}`;
+        li.className = `todo-item ${todo.completed ? 'completed' : ''} ${isArchived ? 'archived' : ''}`;
         li.dataset.id = todo.id;
 
         const note        = getNote(todo.id);
@@ -1419,17 +1627,25 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <div class="subtask-container" style="display:none;"></div>
             </div>
             <div class="task-actions">
+                ${isArchived ? `
+                <button class="action-btn restore-btn" title="Restaurar" aria-label="Restaurar">
+                    <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9"/><polyline points="12 3 12 9 18 9"/></svg>
+                </button>
+                <button class="delete-btn delete-permanent-btn" title="Borrar permanentemente" aria-label="Borrar">
+                    <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                </button>
+                ` : `
                 <button class="action-btn duplicate-btn" title="Duplicar" aria-label="Duplicar">
                     <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                 </button>
-                <button class="delete-btn" aria-label="Eliminar">
-                    <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                <button class="delete-btn archive-action-btn" title="Archivar" aria-label="Archivar">
+                    <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
                 </button>
+                `}
             </div>
         `;
 
         const checkbox       = li.querySelector('.checkbox');
-        const deleteBtn      = li.querySelector('.delete-btn');
         const dupBtn         = li.querySelector('.duplicate-btn');
         const textSpan       = li.querySelector('.todo-text');
         const noteToggle     = li.querySelector('.note-toggle-btn');
@@ -1441,8 +1657,25 @@ document.addEventListener('DOMContentLoaded', async () => {
         const recurrenceSel  = li.querySelector('.recurrence-select');
 
         checkbox.addEventListener('click', () => toggleTodo(todo.id, li));
-        deleteBtn.addEventListener('click', () => deleteTodo(todo.id, li));
-        dupBtn.addEventListener('click', () => duplicateTodo(todo.id));
+
+        if (isArchived) {
+            const restoreBtn = li.querySelector('.restore-btn');
+            const deletePermBtn = li.querySelector('.delete-permanent-btn');
+            if (restoreBtn) restoreBtn.addEventListener('click', async () => {
+                try { await apiRestoreTask(todo.id); await loadTasks(); showToast('Tarea restaurada', 'success'); }
+                catch { showToast('Error al restaurar', 'error'); }
+            });
+            if (deletePermBtn) deletePermBtn.addEventListener('click', async () => {
+                if (!confirm('¿Eliminar esta tarea permanentemente?')) return;
+                await deleteTodoPermanent(todo.id, li);
+                await loadTasks();
+            });
+        } else {
+            const archiveBtn = li.querySelector('.archive-action-btn');
+            if (dupBtn) dupBtn.addEventListener('click', () => duplicateTodo(todo.id));
+            if (archiveBtn) archiveBtn.addEventListener('click', () => archiveTodo(todo.id, li));
+        }
+
         priorityDot.addEventListener('click', () => cyclePriority(todo.id, priorityDot));
 
         recurrenceSel.addEventListener('change', () => {
@@ -1516,22 +1749,29 @@ document.addEventListener('DOMContentLoaded', async () => {
         const pending = total - done;
         const pct     = total > 0 ? Math.round((done / total) * 100) : 0;
 
-        taskCount.textContent = pending;
+        taskCount.textContent = showArchived ? total : pending;
         animateBadgeUpdate(badgeAll, total);
         animateBadgeUpdate(badgePending, pending);
         animateBadgeUpdate(badgeDone, done);
         if (pending > 5) badgePending.classList.add('urgent'); else badgePending.classList.remove('urgent');
 
         if (!pomodoroInterval) {
-            document.title = pending > 0 ? `(${pending}) Infinity To-Do` : 'Infinity To-Do';
+            document.title = showArchived ? `(📦 ${total}) Infinity To-Do` : pending > 0 ? `(${pending}) Infinity To-Do` : 'Infinity To-Do';
         }
 
-        progressBar.style.width   = `${pct}%`;
-        progressLabel.textContent = `${done} de ${total} completadas`;
-        progressPct.textContent   = `${pct}%`;
-        progressPct.style.color   = pct === 100 ? 'var(--success)' : pct >= 50 ? 'var(--accent)' : 'var(--text-muted)';
+        if (showArchived) {
+            progressBar.style.width = '0%';
+            progressLabel.textContent = 'Vista de archivadas';
+            progressPct.textContent = `📦 ${total}`;
+            progressPct.style.color = 'var(--text-muted)';
+        } else {
+            progressBar.style.width   = `${pct}%`;
+            progressLabel.textContent = `${done} de ${total} completadas`;
+            progressPct.textContent   = `${pct}%`;
+            progressPct.style.color   = pct === 100 ? 'var(--success)' : pct >= 50 ? 'var(--accent)' : 'var(--text-muted)';
+        }
 
-        listControls.style.display = total > 0 ? 'flex' : 'none';
+        listControls.style.display = !showArchived && total > 0 ? 'flex' : 'none';
         toggleAllBtn.innerHTML = (total > 0 && done === total) ? '🟩 Desmarcar todas' : '☑️ Marcar todas';
     }
 
