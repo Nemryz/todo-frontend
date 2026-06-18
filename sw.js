@@ -1,8 +1,8 @@
-const CACHE_NAME    = 'infinity-todo-v3';
+const CACHE_NAME    = 'infinity-todo-v4';
 const CACHE_ASSETS  = [
     '/',
     '/index.html',
-    '/app.js',
+    '/src/main.js',
     '/style.css',
     '/manifest.json',
     '/js/supabase.min.js',
