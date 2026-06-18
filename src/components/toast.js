@@ -1,5 +1,7 @@
 // ─── Toast notification system ─────────────────────────────────
 
+import { icon } from '../icons.js';
+
 const CONTAINER_CLASS = 'toast-container';
 let container = document.querySelector('.' + CONTAINER_CLASS);
 if (!container) {
@@ -8,7 +10,7 @@ if (!container) {
     document.body.appendChild(container);
 }
 
-const ICONS = { success: '✅', error: '🚨', info: '💡', warning: '⚠️', magic: '✨', fire: '🔥' };
+const ICONS = { success: icon('check-circle'), error: icon('alert-circle'), info: icon('lightbulb'), warning: icon('alert-triangle'), magic: icon('sparkles'), fire: icon('flame') };
 
 function dismiss(toast) {
     toast.classList.remove('show');

@@ -23,6 +23,7 @@ import { initApi,
 import { translateAuthError } from './services/auth.js';
 import { isOnline, onOnline, onOffline, processQueue } from './services/offline.js';
 import { widget as musicWidget } from './widgets/music-widget.js';
+import { icon } from './icons.js';
 
 // Las credenciales se cargan desde /api/config (Vercel serverless)
 // — nunca aparecen hardcodeadas en este archivo
@@ -142,13 +143,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     const tabStats            = document.getElementById('tab-stats');
 
     const SMART_LISTS = [
-        { id: 'today',    icon: '📅', label: 'Hoy',       filter: (t) => { const d = getTaskDate(t.id); if (!d) return false; const now = new Date(); return d.toDateString() === now.toDateString(); } },
-        { id: 'week',     icon: '⭐', label: 'Semana',    filter: (t) => { const d = getTaskDate(t.id); if (!d) return false; const now = new Date(); const end = new Date(now); end.setDate(end.getDate() + (7 - end.getDay())); return d >= new Date(now.toDateString()) && d <= end; } },
-        { id: 'overdue',  icon: '🔥', label: 'Vencidas',  filter: (t) => { const d = getTaskDate(t.id); if (!d) return false; return d < new Date(new Date().toDateString()) && !t.completed; } },
-        { id: 'all',      icon: '📋', label: 'Todas',     filter: null },
-        { id: 'pending',  icon: '⏳', label: 'Pendientes', filter: (t) => !t.completed },
-        { id: 'done',     icon: '✅', label: 'Completadas',filter: (t) => t.completed },
-        { id: 'archived', icon: '📦', label: 'Archivadas', filter: null, archived: true },
+        { id: 'today',    icon: icon('calendar'), label: 'Hoy',       filter: (t) => { const d = getTaskDate(t.id); if (!d) return false; const now = new Date(); return d.toDateString() === now.toDateString(); } },
+        { id: 'week',     icon: icon('star'),    label: 'Semana',    filter: (t) => { const d = getTaskDate(t.id); if (!d) return false; const now = new Date(); const end = new Date(now); end.setDate(end.getDate() + (7 - end.getDay())); return d >= new Date(now.toDateString()) && d <= end; } },
+        { id: 'overdue',  icon: icon('flame'),   label: 'Vencidas',  filter: (t) => { const d = getTaskDate(t.id); if (!d) return false; return d < new Date(new Date().toDateString()) && !t.completed; } },
+        { id: 'all',      icon: icon('list'),    label: 'Todas',     filter: null },
+        { id: 'pending',  icon: icon('hourglass'), label: 'Pendientes', filter: (t) => !t.completed },
+        { id: 'done',     icon: icon('check-circle'), label: 'Completadas',filter: (t) => t.completed },
+        { id: 'archived', icon: icon('archive'), label: 'Archivadas', filter: null, archived: true },
     ];
     const SMART_LIST_MAP = Object.fromEntries(SMART_LISTS.map(s => [s.id, s]));
 
@@ -159,7 +160,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     let showArchived    = false;
     let searchQuery     = '';
     let sortOrder       = 'default';
-    let confirmTimer    = null;
     let completedStreak = 0;
     let currentSession  = null;
     let focusMode       = false;
@@ -176,9 +176,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     let pomodoroPhase     = 'work'; // 'work' | 'break' | 'focus'
     let pomodoroCompleted = 0;
     const PHASES = {
-        work:  { secs: 25 * 60, label: 'Trabajo', icon: '🍅', next: 'break' },
-        break: { secs:  5 * 60, label: 'Descanso', icon: '☕', next: 'focus' },
-        focus: { secs:  5 * 60, label: 'Repaso',  icon: '🔍', next: 'work' },
+        work:  { secs: 25 * 60, label: 'Trabajo', icon: icon('timer', 16), next: 'break' },
+        break: { secs:  5 * 60, label: 'Descanso', icon: icon('coffee', 16), next: 'focus' },
+        focus: { secs:  5 * 60, label: 'Repaso',  icon: icon('search', 16), next: 'work' },
     };
 
     // ─── TOAST (importado de components/toast.js) ──────────────
@@ -403,7 +403,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         viewMode = mode;
         document.body.classList.toggle('view-grid', mode === 'grid');
         if (viewToggle) {
-            viewToggle.textContent = mode === 'grid' ? '☰' : '⊞';
+            viewToggle.innerHTML = mode === 'grid' ? icon('list', 16) : icon('grid', 16);
             viewToggle.title = mode === 'grid' ? 'Vista lista (G)' : 'Vista tarjetas (G)';
         }
         localStorage.setItem('todo-view', mode);
@@ -555,7 +555,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     function updateDatePreview(text) {
         const date = parseNaturalDate(text);
         if (date) {
-            datePreview.textContent = `📅 ${formatDateShort(date)}`;
+            datePreview.innerHTML = `${icon('calendar', 14)} ${formatDateShort(date)}`;
             datePreview.style.display = 'inline';
         } else {
             datePreview.textContent = '';
@@ -607,7 +607,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <span class="subtask-drag" title="Arrastrar">⋮</span>
                     <button class="subtask-check${st.done ? ' done' : ''}" title="${st.done ? 'Marcar pendiente' : 'Completar'}"></button>
                     <span class="subtask-text${st.done ? ' done' : ''}">${escapeHTML(st.text)}</span>
-                    <button class="subtask-del" title="Eliminar">✕</button>
+                    <button class="subtask-del" title="Eliminar">${icon('x', 12)}</button>
                 `;
                 row.querySelector('.subtask-check').addEventListener('click', async () => {
                     try {
@@ -704,7 +704,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const chip = document.createElement('div');
             chip.id = 'active-tag-indicator';
             chip.className = 'active-tag-indicator';
-            chip.textContent = `🏷️ ${tag}`;
+            chip.innerHTML = `${icon('tag', 14)} ${tag}`;
             chip.addEventListener('click', () => setActiveTag(null));
             document.querySelector('.app-container')?.prepend(chip);
         }
@@ -729,8 +729,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     // ─────────────────────────────────────────────
     // UNDO STACK
     // ─────────────────────────────────────────────
-    function pushUndo(action) { undoStack.push(action); if (undoStack.length > 20) undoStack.shift(); }
-
     async function undoLastAction() {
         const action = undoStack.pop();
         if (!action) { showToast('Nada que deshacer', 'info'); return; }
@@ -766,7 +764,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         pomodoroPhase = 'work';
         pomodoroCompleted = 0;
         beginPhase();
-        showToast('Pomodoro iniciado — 25 min de trabajo 🍅', 'info');
+        showToast('Pomodoro iniciado — 25 min de trabajo', 'info');
     }
 
     function beginPhase() {
@@ -774,7 +772,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         pomodoroRemaining = ph.secs;
         pomodoroBar.style.display = 'flex';
         pomodoroBar.dataset.phase = pomodoroPhase;
-        pomodoroPhaseIcon.textContent = ph.icon;
+        pomodoroPhaseIcon.innerHTML = ph.icon;
         pomodoroPhaseLabel.textContent = ph.label;
         if (btnPomodoro) { btnPomodoro.classList.add('active'); btnPomodoro.title = 'Detener Pomodoro'; }
         updatePomodoroDisplay();
@@ -796,16 +794,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             pomodoroCompleted++;
             incPomodoroTotal();
             if (Notification.permission === 'granted')
-                new Notification(`☕ Descanso — ${pomodoroCompleted} pomodoro(s) completado(s)`, { body: 'Descansa 5 minutos.' });
-            showToast(`🍅 ¡Trabajo completado! — Descanso de 5 min`, 'magic');
+                new Notification(`Descanso — ${pomodoroCompleted} pomodoro(s) completado(s)`, { body: 'Descansa 5 minutos.' });
+            showToast('Trabajo completado — Descanso de 5 min', 'magic');
         } else if (pomodoroPhase === 'break') {
             if (Notification.permission === 'granted')
-                new Notification('🔍 Momento de repasar', { body: '5 minutos para revisar lo que hiciste.' });
-            showToast('☕ Descanso terminado — Repasa lo visto 🔍', 'info');
+                new Notification('Momento de repasar', { body: '5 minutos para revisar lo que hiciste.' });
+            showToast('Descanso terminado — Repasa lo visto', 'info');
         } else {
             if (Notification.permission === 'granted')
-                new Notification('🍅 Nuevo ciclo Pomodoro', { body: '¡Vuelve al trabajo!' });
-            showToast('🔍 Repaso terminado — ¡Nuevo ciclo! 🍅', 'magic');
+                new Notification('Nuevo ciclo Pomodoro', { body: '¡Vuelve al trabajo!' });
+            showToast('Repaso terminado — Nuevo ciclo', 'magic');
         }
 
         pomodoroPhase = ph.next;
@@ -985,7 +983,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const li = document.createElement('li');
             li.className = `cal-task-item${t.completed ? ' done' : ''}`;
             li.innerHTML = `
-                <span class="cal-task-check">${t.completed ? '✅' : '⬜'}</span>
+                <span class="cal-task-check">${t.completed ? icon('check-circle', 14) : icon('circle', 14)}</span>
                 <span class="cal-task-text">${escapeHTML(t.text)}</span>
             `;
             li.addEventListener('click', () => {
@@ -998,9 +996,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    function openCalendar() {
-        switchRightTab('calendar');
-    }
     function closeCalendar() {
         if (drawerOpen) { drawerOpen = false; updateDrawer(); }
     }
@@ -1037,29 +1032,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     // PALETA DE COMANDOS (Ctrl+K)
     // ─────────────────────────────────────────────
     const COMMANDS = [
-        { label:'Nueva tarea',            icon:'✏️',  action: () => { closeCommandPalette(); input.focus(); } },
-        { label:'Buscar tareas',           icon:'🔍', action: () => { closeCommandPalette(); searchInput.focus(); } },
-        { label:'Vista grid / lista',      icon:'⊞',  action: () => { closeCommandPalette(); applyViewMode(viewMode === 'list' ? 'grid' : 'list'); } },
-        { label:'Modo compacto',           icon:'⊟',  action: () => { closeCommandPalette(); toggleCompactMode(); } },
-        { label:'Iniciar / detener Pomodoro', icon:'⏱', action: () => { closeCommandPalette(); if (pomodoroInterval) stopPomodoro(); else startPomodoro(); } },
-        { label:'Tipografía',              icon:'Aa', action: () => { closeCommandPalette(); btnTypography.click(); } },
-        { label:'Estadísticas',            icon:'📊', action: () => { closeCommandPalette(); switchRightTab('stats'); } },
-        { label:'Exportar tareas',         icon:'↓',  action: () => { closeCommandPalette(); openExportModal(); } },
-        { label:'Modo enfoque',            icon:'👁', action: () => { closeCommandPalette(); toggleFocusMode(); } },
-        { label:'Atajos de teclado',       icon:'⌨️', action: () => { closeCommandPalette(); openShortcuts(); } },
-        { label:'Tema: Cosmos',            icon:'🌌', action: () => { closeCommandPalette(); applyTheme('cosmos'); } },
-        { label:'Tema: Hacker',            icon:'💻', action: () => { closeCommandPalette(); applyTheme('hacker'); } },
-        { label:'Tema: Office',            icon:'📋', action: () => { closeCommandPalette(); applyTheme('office'); } },
-        { label:'Tema: Dark Minimal',      icon:'◼',  action: () => { closeCommandPalette(); applyTheme('minimal'); } },
-        { label:'Tema: Nord',              icon:'❄',  action: () => { closeCommandPalette(); applyTheme('nord'); } },
-        { label:'Tema: Sakura',            icon:'🌸', action: () => { closeCommandPalette(); applyTheme('sakura'); } },
-        { label:'Tema: Sunset',            icon:'🌅', action: () => { closeCommandPalette(); applyTheme('sunset'); } },
-        { label:'Tema: Alto Contraste',    icon:'◑',  action: () => { closeCommandPalette(); applyTheme('contrast'); } },
-        { label:'Filtro: Todas',           icon:'📋', action: () => { closeCommandPalette(); document.getElementById('filter-all').click(); } },
-        { label:'Filtro: Pendientes',      icon:'⏳', action: () => { closeCommandPalette(); document.getElementById('filter-pending').click(); } },
-        { label:'Filtro: Completadas',     icon:'✅', action: () => { closeCommandPalette(); document.getElementById('filter-done').click(); } },
-        { label:'Deshacer última acción',  icon:'↩️', action: () => { closeCommandPalette(); undoLastAction(); } },
-        { label:'Cerrar sesión',           icon:'🚪', action: () => { closeCommandPalette(); btnLogout.click(); } },
+        { label:'Nueva tarea',            icon: icon('edit-3', 16),  action: () => { closeCommandPalette(); input.focus(); } },
+        { label:'Buscar tareas',          icon: icon('search', 16), action: () => { closeCommandPalette(); searchInput.focus(); } },
+        { label:'Vista grid / lista',     icon: icon('grid', 16),   action: () => { closeCommandPalette(); applyViewMode(viewMode === 'list' ? 'grid' : 'list'); } },
+        { label:'Modo compacto',          icon: icon('minimize-2', 16), action: () => { closeCommandPalette(); toggleCompactMode(); } },
+        { label:'Iniciar / detener Pomodoro', icon: icon('timer', 16), action: () => { closeCommandPalette(); if (pomodoroInterval) stopPomodoro(); else startPomodoro(); } },
+        { label:'Tipografía',             icon:'Aa', action: () => { closeCommandPalette(); btnTypography.click(); } },
+        { label:'Estadísticas',           icon: icon('bar-chart-3', 16), action: () => { closeCommandPalette(); switchRightTab('stats'); } },
+        { label:'Exportar tareas',        icon: icon('download', 16), action: () => { closeCommandPalette(); openExportModal(); } },
+        { label:'Modo enfoque',           icon: icon('eye', 16),    action: () => { closeCommandPalette(); toggleFocusMode(); } },
+        { label:'Atajos de teclado',      icon: icon('keyboard', 16), action: () => { closeCommandPalette(); openShortcuts(); } },
+        { label:'Tema: Cosmos',           icon: icon('sparkles', 16), action: () => { closeCommandPalette(); applyTheme('cosmos'); } },
+        { label:'Tema: Hacker',           icon: icon('terminal', 16), action: () => { closeCommandPalette(); applyTheme('hacker'); } },
+        { label:'Tema: Office',           icon: icon('clipboard', 16), action: () => { closeCommandPalette(); applyTheme('office'); } },
+        { label:'Tema: Dark Minimal',     icon: icon('square', 16), action: () => { closeCommandPalette(); applyTheme('minimal'); } },
+        { label:'Tema: Nord',             icon: icon('snowflake', 16), action: () => { closeCommandPalette(); applyTheme('nord'); } },
+        { label:'Tema: Sakura',           icon: icon('flower-2', 16), action: () => { closeCommandPalette(); applyTheme('sakura'); } },
+        { label:'Tema: Sunset',           icon: icon('sunrise', 16), action: () => { closeCommandPalette(); applyTheme('sunset'); } },
+        { label:'Tema: Alto Contraste',   icon: icon('contrast', 16), action: () => { closeCommandPalette(); applyTheme('contrast'); } },
+        { label:'Filtro: Todas',          icon: icon('list', 16),   action: () => { closeCommandPalette(); document.getElementById('filter-all').click(); } },
+        { label:'Filtro: Pendientes',     icon: icon('hourglass', 16), action: () => { closeCommandPalette(); document.getElementById('filter-pending').click(); } },
+        { label:'Filtro: Completadas',    icon: icon('check-circle', 16), action: () => { closeCommandPalette(); document.getElementById('filter-done').click(); } },
+        { label:'Deshacer última acción', icon: icon('undo-2', 16), action: () => { closeCommandPalette(); undoLastAction(); } },
+        { label:'Cerrar sesión',          icon: icon('log-out', 16), action: () => { closeCommandPalette(); btnLogout.click(); } },
     ];
 
     let cmdSelectedIndex = -1;
@@ -1098,7 +1093,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             commandResults.appendChild(s);
             matchedTasks.forEach(task => {
                 const item = document.createElement('div'); item.className = 'command-item';
-                item.innerHTML = `<span class="command-icon">${task.completed ? '✅' : '⬜'}</span><span class="command-task-text">${escapeHTML(task.text)}</span>`;
+                item.innerHTML = `<span class="command-icon">${task.completed ? icon('check-circle', 14) : icon('circle', 14)}</span><span class="command-task-text">${escapeHTML(task.text)}</span>`;
                 item.addEventListener('click', () => {
                     closeCommandPalette();
                     searchInput.value = task.text.slice(0, 20);
@@ -1151,7 +1146,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!completed.length) { showToast('No hay tareas completadas', 'info'); return; }
         await Promise.all(completed.map(t => authFetch(`${API_URL}/tasks/${t.id}`, { method: 'DELETE' })));
         await loadTasks();
-        showToast(`${completed.length} tareas eliminadas 🧹`, 'magic');
+        showToast(`${completed.length} tareas eliminadas`, 'magic');
     });
 
     document.getElementById('manage-archive').addEventListener('click', async () => {
@@ -1160,7 +1155,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!completed.length) { showToast('No hay tareas completadas', 'info'); return; }
         await Promise.all(completed.map(t => apiArchiveTask(t.id)));
         await loadTasks();
-        showToast(`${completed.length} tareas archivadas 📦`, 'info');
+        showToast(`${completed.length} tareas archivadas`, 'info');
     });
 
     // MARCAR TODAS
@@ -1173,7 +1168,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         applyFilter(); toggleAllBtn.disabled = true;
         try {
             await Promise.all(toUpdate.map(t => authFetch(`${API_URL}/tasks/${t.id}`, { method: 'PUT', body: JSON.stringify({ completed: newState }) })));
-            showToast(newState ? '¡Todas completadas! 🎉' : 'Todas pendientes de nuevo', 'magic');
+            showToast(newState ? 'Todas completadas' : 'Todas pendientes de nuevo', 'magic');
         } catch { showToast('Error de conexión', 'error'); await loadTasks(); }
         finally { toggleAllBtn.disabled = false; }
     });
@@ -1249,7 +1244,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         todoList.innerHTML = '';
         if (!filtered.length) {
-            const msg = showArchived ? '📦 No hay tareas archivadas' : '✨ No hay tareas aquí';
+            const msg = showArchived ? 'No hay tareas archivadas' : 'No hay tareas aquí';
             todoList.innerHTML = `<li class="empty-msg">${msg}</li>`;
         } else {
             filtered.forEach((todo, i) => {
@@ -1430,7 +1425,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (date) {
             const chip = document.createElement('span');
             chip.className = 'nlp-chip nlp-chip-date';
-            chip.textContent = `📅 ${formatDateShort(date)}`;
+            chip.innerHTML = `${icon('calendar', 14)} ${formatDateShort(date)}`;
             nlpChips.appendChild(chip);
         }
         const priorityMatch = text.match(/!(\w+)/);
@@ -1439,17 +1434,17 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (['alta', 'high', 'urgente'].includes(p)) {
                 const chip = document.createElement('span');
                 chip.className = 'nlp-chip nlp-chip-priority';
-                chip.textContent = '🔴 Alta prioridad';
+                chip.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="var(--danger)" stroke="var(--danger)" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg> Alta prioridad';
                 nlpChips.appendChild(chip);
             } else if (['media', 'medium', 'normal'].includes(p)) {
                 const chip = document.createElement('span');
                 chip.className = 'nlp-chip nlp-chip-priority';
-                chip.textContent = '🟡 Prioridad media';
+                chip.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="var(--warning)" stroke="var(--warning)" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg> Prioridad media';
                 nlpChips.appendChild(chip);
             } else if (['baja', 'low', 'poca'].includes(p)) {
                 const chip = document.createElement('span');
                 chip.className = 'nlp-chip nlp-chip-priority';
-                chip.textContent = '🟢 Baja prioridad';
+                chip.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="var(--success)" stroke="var(--success)" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg> Baja prioridad';
                 nlpChips.appendChild(chip);
             }
         }
@@ -1457,7 +1452,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (recMatch) {
             const chip = document.createElement('span');
             chip.className = 'nlp-chip nlp-chip-recurrence';
-            chip.textContent = '↻ Recurrente';
+            chip.innerHTML = `${icon('rotate-ccw', 12)} Recurrente`;
             nlpChips.appendChild(chip);
         }
     }
@@ -1478,7 +1473,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             updateCenterHeader();
         } catch {
             showToast('No se pudo conectar al servidor', 'error');
-            todoList.innerHTML = `<li class="empty-msg" style="color:var(--danger)">🚨 Error de conexión</li>`;
+            todoList.innerHTML = `<li class="empty-msg" style="color:var(--danger)">${icon('alert-circle', 16)} Error de conexión</li>`;
         }
     }
 
@@ -1525,8 +1520,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 awardPoints(2, 1);
                 completedStreak++;
                 const pending = allTasks.filter(t => !t.completed).length;
-                if (pending === 0 && allTasks.length > 0) { showToast('¡Todas completadas! 🎉', 'magic'); launchConfetti(); }
-                else if (completedStreak === 3) { showToast('¡Estás on fire! 🔥', 'fire'); completedStreak = 0; }
+                if (pending === 0 && allTasks.length > 0) { showToast('Todas completadas', 'magic'); launchConfetti(); }
+                else if (completedStreak === 3) { showToast('Vas muy bien', 'fire'); completedStreak = 0; }
                 else showToast('¡Una menos!', 'success');
                 const rec = getRecurrence(id);
                 if (rec !== 'none') {
@@ -1561,7 +1556,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         setTimeout(() => applyFilter(), 300);
         try {
             await apiArchiveTask(id);
-            showToast('Tarea archivada 📦', 'info', 'Deshacer', async () => {
+            showToast('Tarea archivada', 'info', 'Deshacer', async () => {
                 try { await apiRestoreTask(id); await loadTasks(); showToast('Tarea restaurada', 'success'); }
                 catch { showToast('Error al restaurar', 'error'); }
             });
@@ -1578,7 +1573,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             const res = await authFetch(`${API_URL}/tasks/${id}`, { method: 'DELETE' });
             if (!res.ok) throw new Error();
-            showToast('Tarea eliminada permanentemente 🗑️', 'warning');
+            showToast('Tarea eliminada permanentemente', 'warning');
         } catch {
             showToast('No se pudo eliminar', 'error');
         }
@@ -1799,13 +1794,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (pending > 5) badgePending.classList.add('urgent'); else badgePending.classList.remove('urgent');
 
         if (!pomodoroInterval) {
-            document.title = showArchived ? `(📦 ${total}) Infinity To-Do` : pending > 0 ? `(${pending}) Infinity To-Do` : 'Infinity To-Do';
+            document.title = showArchived ? `(${total}) Infinity To-Do` : pending > 0 ? `(${pending}) Infinity To-Do` : 'Infinity To-Do';
         }
 
         if (showArchived) {
             progressBar.style.width = '0%';
             progressLabel.textContent = 'Vista de archivadas';
-            progressPct.textContent = `📦 ${total}`;
+            progressPct.innerHTML = `${icon('archive', 12)} ${total}`;
             progressPct.style.color = 'var(--text-muted)';
         } else {
             progressBar.style.width   = `${pct}%`;
@@ -1815,7 +1810,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         listControls.style.display = !showArchived && total > 0 ? 'flex' : 'none';
-        toggleAllBtn.innerHTML = (total > 0 && done === total) ? '🟩 Desmarcar todas' : '☑️ Marcar todas';
+        toggleAllBtn.innerHTML = (total > 0 && done === total) ? `${icon('check-square', 14)} Desmarcar todas` : `${icon('check-square', 14)} Marcar todas`;
     }
 
     function animateBadgeUpdate(element, newValue) {

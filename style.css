@@ -224,23 +224,6 @@ body {
     background: var(--glass-border);
     color: var(--text-muted);
 }
-.panel-action-btn {
-    width: 32px;
-    height: 32px;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--glass-border);
-    background: transparent;
-    color: var(--text-muted);
-    cursor: pointer;
-    font-size: 0.9rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: var(--transition-fast);
-}
-.panel-action-btn:hover { background: var(--glass-border); color: var(--text-main); }
-.panel-action-btn.active { color: var(--primary); border-color: var(--primary); }
-
 /* ─── CENTER: Header (inline subtitle) ─── */
 .center-header {
     display: flex;
@@ -2525,30 +2508,16 @@ body.theme-contrast input, body.theme-contrast textarea { cursor: text; }
     box-shadow: 0 0 8px rgba(147, 51, 234, 0.4);
 }
 
-/* Indicador de tag activo sobre la lista */
+/* Tag activo */
 .active-tag-indicator {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    font-size: 0.8rem;
-    color: var(--text-muted);
-    margin-bottom: 0.75rem;
-    padding: 0.35rem 0.75rem;
-    background: rgba(147, 51, 234, 0.08);
-    border: 1px solid rgba(147, 51, 234, 0.2);
-    border-radius: 0.6rem;
-    animation: fadeIn 0.2s ease;
+    display: flex; align-items: center; gap: 0.4rem;
+    font-size: 0.8rem; color: var(--text-muted);
+    margin-bottom: 0.75rem; padding: 0.35rem 0.75rem;
+    background: color-mix(in srgb, var(--primary) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--primary) 25%, transparent);
+    border-radius: 0.6rem; cursor: pointer; transition: var(--transition-fast);
 }
-.active-tag-indicator strong { color: var(--primary); }
-.active-tag-clear {
-    margin-left: auto;
-    cursor: pointer;
-    color: var(--text-muted);
-    font-size: 0.75rem;
-    padding: 0 0.2rem;
-    transition: color 0.15s;
-}
-.active-tag-clear:hover { color: var(--danger); }
+.active-tag-indicator:hover { background: color-mix(in srgb, var(--danger) 15%, transparent); border-color: var(--danger); }
 
 /* Adaptaciones por tema */
 body.theme-hacker .tag-chip {
@@ -2757,7 +2726,7 @@ body.compact-mode .delete-btn svg { width: 14px; height: 14px; }
     border-color: var(--success);
 }
 .subtask-check.done::after {
-    content: 'ԣ�';
+    content: '✓';
     position: absolute;
     top: -2px;
     left: 1px;

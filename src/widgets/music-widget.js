@@ -1,4 +1,5 @@
 import { showToast } from '../components/toast.js';
+import { icon } from '../icons.js';
 
 const STORAGE_KEY = 'todo-music-state';
 let CONTAINER = null;
@@ -23,10 +24,10 @@ function renderWidget() {
     CONTAINER.innerHTML = `
         <div class="music-widget">
             <div class="music-header">
-                <div class="music-title">🎵 Música</div>
+                <div class="music-title">${icon('music', 18)} Música</div>
                 <div class="music-search-row">
                     <input type="text" class="music-search" placeholder="Buscar o pegar URL de YouTube..." value="${escapeHTML(state.lastSearch || '')}" autocomplete="off">
-                    <button class="music-search-btn" title="Buscar">🔍</button>
+                    <button class="music-search-btn" title="Buscar">${icon('search', 18)}</button>
                 </div>
             </div>
 
@@ -47,9 +48,9 @@ function renderWidget() {
                         <div class="music-video-channel">${escapeHTML(state.videoChannel || '')}</div>
                     </div>
                     <div class="music-video-actions">
-                        <button class="music-btn-playlist-add" title="Agregar a playlist">➕</button>
+                        <button class="music-btn-playlist-add" title="Agregar a playlist">${icon('plus', 18)}</button>
                         <button class="music-open-yt">Abrir en YouTube ↗</button>
-                        <button class="music-clear-btn">✕ Cerrar</button>
+                        <button class="music-clear-btn">${icon('x', 12)} Cerrar</button>
                     </div>
                 </div>
 
@@ -58,7 +59,7 @@ function renderWidget() {
                         <span class="music-player-title">${escapeHTML(state.videoTitle || '')}</span>
                         <div class="music-player-header-actions">
                             <button class="music-open-yt-small" title="Abrir en YouTube">↗</button>
-                            <button class="music-close-player" title="Cerrar">✕</button>
+                            <button class="music-close-player" title="Cerrar">${icon('x', 14)}</button>
                         </div>
                     </div>
                     <div class="music-player-iframe-wrap">
@@ -423,7 +424,7 @@ function renderPlaylists() {
             vidsEl.innerHTML = pl.videos.map((v, vi) => `
                 <div class="music-playlist-video" data-playlist="${idx}" data-video-idx="${vi}">
                     <span class="music-pl-video-title">${escapeHTML(v.title || v.id)}</span>
-                    <button class="music-pl-video-del" title="Quitar de playlist">✕</button>
+                    <button class="music-pl-video-del" title="Quitar de playlist">${icon('x', 12)}</button>
                 </div>
             `).join('');
 
@@ -467,7 +468,7 @@ function escapeHTML(str) {
 
 export const widget = {
     name: 'Música',
-    icon: '🎵',
+    icon: icon('music'),
     side: 'left',
     defaultEnabled: false,
     render: (el, options = {}) => {
