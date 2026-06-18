@@ -1,0 +1,184 @@
+// ─── Music widget — YouTube IFrame mini-player ────────────────
+
+const STORAGE_KEY = 'todo-music-state';
+let player = null;
+let container = null;
+let currentVideoId = '';
+let isPlaying = false;
+
+function getState() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; }
+    catch { return {}; }
+}
+
+function saveState(s) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
+}
+
+function loadYouTubeAPI() {
+    if (window.YT) return Promise.resolve();
+    return new Promise((resolve) => {
+        const tag = document.createElement('script');
+        tag.src = 'https://www.youtube.com/iframe_api';
+        tag.async = true;
+        const first = document.getElementsByTagName('script')[0];
+        first.parentNode.insertBefore(tag, first);
+        window.onYouTubeIframeAPIReady = resolve;
+    });
+}
+
+function render(playerEl) {
+    container = playerEl;
+    const state = getState();
+    currentVideoId = state.videoId || '';
+
+    container.innerHTML = `
+        <div class="music-widget">
+            <div class="music-header">
+                <span class="music-title">🎵 Música</span>
+                <div class="music-search-row">
+                    <input type="text" class="music-search" placeholder="Buscar en YouTube..." value="${state.lastSearch || ''}">
+                    <button class="music-search-btn" title="Buscar">🔍</button>
+                </div>
+            </div>
+            <div class="music-player-area">
+                <div id="music-youtube-player" class="music-youtube-player"></div>
+                <div class="music-controls">
+                    <button class="music-btn music-prev" title="Anterior">⏮</button>
+                    <button class="music-btn music-play-pause" title="Play/Pause">${isPlaying ? '⏸' : '▶️'}</button>
+                    <button class="music-btn music-next" title="Siguiente">⏭</button>
+                    <input type="range" class="music-volume" min="0" max="100" value="${state.volume ?? 50}">
+                </div>
+            </div>
+            <div class="music-playlists">
+                <div class="music-playlist-header">
+                    <span>Playlists</span>
+                    <button class="music-add-playlist" title="Nueva playlist">+</button>
+                </div>
+                <div class="music-playlist-list" id="music-playlist-list"></div>
+            </div>
+        </div>
+    `;
+
+    const searchInput = container.querySelector('.music-search');
+    const searchBtn = container.querySelector('.music-search-btn');
+    const playBtn = container.querySelector('.music-play-pause');
+    const prevBtn = container.querySelector('.music-prev');
+    const nextBtn = container.querySelector('.music-next');
+    const volumeSlider = container.querySelector('.music-volume');
+    const addPlaylistBtn = container.querySelector('.music-add-playlist');
+
+    searchBtn.addEventListener('click', () => searchYouTube(searchInput.value));
+    searchInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') searchYouTube(searchInput.value); });
+
+    playBtn.addEventListener('click', togglePlay);
+    prevBtn.addEventListener('click', () => { });
+    nextBtn.addEventListener('click', () => { });
+
+    volumeSlider.addEventListener('input', () => {
+        const v = parseInt(volumeSlider.value);
+        if (player) player.setVolume(v);
+        saveState({ ...getState(), volume: v });
+    });
+
+    addPlaylistBtn.addEventListener('click', () => {
+        const name = prompt('Nombre de la playlist:');
+        if (name) {
+            const playlists = getState().playlists || [];
+            playlists.push({ name, videos: [] });
+            saveState({ ...getState(), playlists });
+            renderPlaylists();
+        }
+    });
+
+    if (currentVideoId) {
+        loadYouTubeAPI().then(() => initPlayer(currentVideoId));
+    }
+
+    renderPlaylists();
+}
+
+function initPlayer(videoId) {
+    if (player) {
+        player.loadVideoById(videoId);
+        return;
+    }
+    player = new YT.Player('music-youtube-player', {
+        videoId,
+        height: 120,
+        width: '100%',
+        playerVars: {
+            autoplay: 1,
+            controls: 0,
+            modestbranding: 1,
+            rel: 0,
+        },
+        events: {
+            onStateChange: (e) => {
+                isPlaying = e.data === YT.PlayerState.PLAYING;
+                const btn = container?.querySelector('.music-play-pause');
+                if (btn) btn.textContent = isPlaying ? '⏸' : '▶️';
+                if (e.data === YT.PlayerState.ENDED) {
+                    // Auto-play next from playlist
+                }
+            },
+            onError: () => { showToast('Error al reproducir video', 'error'); },
+        },
+    });
+    const vol = getState().volume ?? 50;
+    player.setVolume(vol);
+}
+
+function searchYouTube(query) {
+    if (!query) return;
+    saveState({ ...getState(), lastSearch: query });
+    const w = window.open(
+        `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`,
+        'youtube-search',
+        'width=800,height=600'
+    );
+}
+
+function togglePlay() {
+    if (player) {
+        if (isPlaying) player.pauseVideo();
+        else player.playVideo();
+    }
+}
+
+function playVideo(videoId) {
+    currentVideoId = videoId;
+    saveState({ ...getState(), videoId });
+    if (!window.YT) {
+        loadYouTubeAPI().then(() => initPlayer(videoId));
+    } else {
+        initPlayer(videoId);
+    }
+}
+
+function renderPlaylists() {
+    const list = container?.querySelector('#music-playlist-list');
+    if (!list) return;
+    const state = getState();
+    const playlists = state.playlists || [];
+    list.innerHTML = playlists.map((pl, i) => `
+        <div class="music-playlist-item">
+            <span>${escapeHTML(pl.name)}</span>
+            <span class="music-playlist-count">${pl.videos.length}</span>
+        </div>
+    `).join('');
+}
+
+function escapeHTML(str) {
+    return String(str).replace(/[&<>'"]/g, tag =>
+        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+    );
+}
+
+export const widget = {
+    name: 'Música',
+    icon: '🎵',
+    side: 'left',
+    defaultEnabled: false,
+    render,
+};

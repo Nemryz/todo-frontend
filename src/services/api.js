@@ -116,3 +116,12 @@ export async function deleteSubtask(taskId, subtaskId) {
     });
     if (!res.ok) throw new Error();
 }
+
+export async function reorderSubtasks(taskId, subtasks) {
+    check();
+    const res = await _authFetch(`${_apiUrl}/tasks/${taskId}/subtasks/reorder`, {
+        method: 'PUT',
+        body: JSON.stringify({ subtasks }),
+    });
+    if (!res.ok) throw new Error();
+}

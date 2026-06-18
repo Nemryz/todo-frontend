@@ -23,10 +23,10 @@
     <meta name="apple-mobile-web-app-title" content="Infinity To-Do">
     <link rel="apple-touch-icon" href="/icons/icon-192.png">
 
-    <!-- Google Fonts (reemplazar con self-hosted en Sprint 4) -->
+    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@400;600&family=Lora:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 
     <link rel="stylesheet" href="style.css">
 
@@ -92,6 +92,7 @@
                 <button id="export-json" class="auth-btn">JSON</button>
                 <button id="export-csv" class="auth-btn secondary">CSV</button>
                 <button id="export-md" class="auth-btn secondary">Markdown</button>
+                <button id="export-ics" class="auth-btn secondary">ICS</button>
             </div>
             <div class="export-divider"><span>o</span></div>
             <button id="import-json-btn" class="auth-btn magic-btn">Importar desde JSON</button>
@@ -124,15 +125,15 @@
                 <p class="typography-label">Familia</p>
                 <div class="typography-options" id="font-options">
                     <button class="typo-btn active" data-font="'Outfit', sans-serif">
-                        <span class="typo-preview" style="font-family:'Outfit',sans-serif">Aa</span>
+                        <span class="typo-preview" style="font-family:var(--font-sans)">Aa</span>
                         Sans-serif — Outfit
                     </button>
                     <button class="typo-btn" data-font="'JetBrains Mono', monospace">
-                        <span class="typo-preview" style="font-family:'JetBrains Mono',monospace">Aa</span>
+                        <span class="typo-preview" style="font-family:var(--font-mono)">Aa</span>
                         Monospace — JetBrains Mono
                     </button>
                     <button class="typo-btn" data-font="'Times New Roman', Times, serif">
-                        <span class="typo-preview" style="font-family:'Times New Roman',Times,serif">Aa</span>
+                        <span class="typo-preview" style="font-family:var(--font-serif)">Aa</span>
                         Serif — Times New Roman
                     </button>
                 </div>
@@ -217,6 +218,7 @@
                     <button id="theme-contrast"  class="theme-btn" title="Alto Contraste">◑</button>
                     <button id="btn-typography"  class="theme-btn" title="Tipografía">Aa</button>
                     <button id="btn-calendar"   class="theme-btn" title="Calendario">📅</button>
+                    <button id="btn-music"      class="theme-btn" title="Música">🎵</button>
                     <button id="btn-stats"       class="theme-btn" title="Estadísticas">📊</button>
                     <button id="btn-shortcuts"   class="theme-btn" title="Atajos de teclado (?)">⌨</button>
                     <button id="btn-logout"      class="theme-btn" title="Cerrar sesión">🚪</button>
@@ -305,6 +307,15 @@
                         </div>
                         <ul id="cal-tasks-list" class="cal-tasks-list"></ul>
                     </div>
+                </div>
+
+                <!-- Panel de música (colapsable) -->
+                <div id="music-panel" class="calendar-panel" style="display:none;">
+                    <div class="calendar-header">
+                        <span class="cal-title">🎵 Música</span>
+                        <button id="music-close" class="close-btn">✕</button>
+                    </div>
+                    <div id="music-player-container"></div>
                 </div>
 
                 <!-- Panel de estadísticas (colapsable) -->

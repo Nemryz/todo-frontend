@@ -18,8 +18,11 @@ import { initApi,
     createSubtask as apiCreateSubtask,
     toggleSubtask as apiToggleSubtask,
     deleteSubtask as apiDeleteSubtask,
+    reorderSubtasks as apiReorderSubtasks,
 } from './services/api.js';
 import { translateAuthError } from './services/auth.js';
+import { isOnline, onOnline, onOffline, processQueue } from './services/offline.js';
+import { widget as musicWidget } from './widgets/music-widget.js';
 
 // Las credenciales se cargan desde /api/config (Vercel serverless)
 // — nunca aparecen hardcodeadas en este archivo
@@ -104,6 +107,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const exportJson      = document.getElementById('export-json');
     const exportCsv       = document.getElementById('export-csv');
     const exportMd        = document.getElementById('export-md');
+    const exportIcs       = document.getElementById('export-ics');
     const typographyModal = document.getElementById('typography-modal');
     const closeTypography = document.getElementById('close-typography');
 
@@ -428,6 +432,29 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (format === 'markdown') {
             downloadFile(allTasks.map(t => `- [${t.completed ? 'x' : ' '}] ${t.text}`).join('\n'), `tareas-${now}.md`, 'text/markdown');
         }
+        if (format === 'ics') {
+            const lines = [
+                'BEGIN:VCALENDAR',
+                'VERSION:2.0',
+                'PRODID:-//Infinity Todo//ES',
+                'CALSCALE:GREGORIAN',
+                'METHOD:PUBLISH',
+            ];
+            allTasks.forEach(t => {
+                const d = getTaskDate(t.id);
+                const dateStr = d ? d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z' : now.replace(/-/g, '');
+                const uid = `${t.id}-${now}@infinity-todo`;
+                lines.push('BEGIN:VEVENT');
+                lines.push(`UID:${uid}`);
+                lines.push(`DTSTART:${dateStr}`);
+                lines.push(`DTEND:${dateStr}`);
+                lines.push(`SUMMARY:${t.text.replace(/,/g, '\\,').replace(/;/g, '\\;')}`);
+                lines.push(`STATUS:${t.completed ? 'COMPLETED' : 'CONFIRMED'}`);
+                lines.push('END:VEVENT');
+            });
+            lines.push('END:VCALENDAR');
+            downloadFile(lines.join('\r\n'), `tareas-${now}.ics`, 'text/calendar;charset=utf-8');
+        }
         closeExportModal();
         showToast(`Exportado como ${format.toUpperCase()}`, 'success');
     }
@@ -435,6 +462,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (exportJson) exportJson.addEventListener('click', () => exportTasks('json'));
     if (exportCsv)  exportCsv.addEventListener('click',  () => exportTasks('csv'));
     if (exportMd)   exportMd.addEventListener('click',   () => exportTasks('markdown'));
+    if (exportIcs)  exportIcs.addEventListener('click',   () => exportTasks('ics'));
 
     if (importJsonBtn) importJsonBtn.addEventListener('click', () => importFile && importFile.click());
     if (importFile) importFile.addEventListener('change', () => {
@@ -538,10 +566,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         function refresh() {
             panel.innerHTML = '';
             const subtasks = getSubtasks(taskId);
+            const list = document.createElement('div');
+            list.className = 'subtask-list';
             subtasks.forEach((st) => {
                 const row = document.createElement('div');
                 row.className = 'subtask-row';
+                row.dataset.id = st.id;
                 row.innerHTML = `
+                    <span class="subtask-drag" title="Arrastrar">⋮</span>
                     <button class="subtask-check${st.done ? ' done' : ''}" title="${st.done ? 'Marcar pendiente' : 'Completar'}"></button>
                     <span class="subtask-text${st.done ? ' done' : ''}">${escapeHTML(st.text)}</span>
                     <button class="subtask-del" title="Eliminar">✕</button>
@@ -556,15 +588,38 @@ document.addEventListener('DOMContentLoaded', async () => {
                 row.querySelector('.subtask-del').addEventListener('click', async () => {
                     try {
                         await apiDeleteSubtask(taskId, st.id);
-                        const list = getSubtasks(taskId);
-                        const idx = list.findIndex(s => s.id === st.id);
-                        if (idx !== -1) list.splice(idx, 1);
-                        setSubtasks(taskId, list);
+                        const list_ = getSubtasks(taskId);
+                        const idx = list_.findIndex(s => s.id === st.id);
+                        if (idx !== -1) list_.splice(idx, 1);
+                        setSubtasks(taskId, list_);
                         refresh();
                     } catch { showToast('Error al eliminar subtarea', 'error'); }
                 });
-                panel.appendChild(row);
+                list.appendChild(row);
             });
+            panel.appendChild(list);
+
+            if (subtasks.length > 1 && window.Sortable) {
+                new Sortable(list, {
+                    animation: 150,
+                    handle: '.subtask-drag',
+                    ghostClass: 'subtask-ghost',
+                    onEnd: async () => {
+                        const newOrder = [...list.querySelectorAll('.subtask-row')].map((el, i) => ({
+                            id: parseInt(el.dataset.id), order_index: i,
+                        }));
+                        const task = allTasks.find(t => t.id === taskId);
+                        if (task) {
+                            newOrder.forEach((o, i) => { if (task.subtasks[i]) task.subtasks[i].order_index = i; });
+                        }
+                        try {
+                            await apiReorderSubtasks(taskId, newOrder);
+                            showToast('Subtareas reordenadas', 'success');
+                        } catch { showToast('Error al reordenar', 'error'); }
+                    }
+                });
+            }
+
             const addRow = document.createElement('div');
             addRow.className = 'subtask-add-row';
             addRow.innerHTML = `<input class="subtask-input" type="text" placeholder="Nueva subtarea..." maxlength="200">`;
@@ -575,9 +630,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (!text) return;
                 try {
                     const created = await apiCreateSubtask(taskId, text);
-                    const list = getSubtasks(taskId);
-                    list.push(created);
-                    setSubtasks(taskId, list);
+                    const list_ = getSubtasks(taskId);
+                    list_.push(created);
+                    setSubtasks(taskId, list_);
                     refresh();
                 } catch { showToast('Error al crear subtarea', 'error'); }
             });
@@ -756,6 +811,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         statsPanel.style.display = statsVisible ? 'block' : 'none';
         btnStats.classList.toggle('active', statsVisible);
         if (statsVisible) renderStats();
+    });
+
+    // ─────────────────────────────────────────────
+    // WIDGET DE MÚSICA
+    // ─────────────────────────────────────────────
+    const musicPanel  = document.getElementById('music-panel');
+    const btnMusic    = document.getElementById('btn-music');
+    const musicClose  = document.getElementById('music-close');
+    let musicWidgetInit = false;
+
+    if (btnMusic) btnMusic.addEventListener('click', () => {
+        const shown = musicPanel.style.display === 'block';
+        musicPanel.style.display = shown ? 'none' : 'block';
+        btnMusic.classList.toggle('active', !shown);
+        if (!shown && !musicWidgetInit) {
+            musicWidgetInit = true;
+            musicWidget.render(document.getElementById('music-player-container'));
+        }
+    });
+    if (musicClose) musicClose.addEventListener('click', () => {
+        musicPanel.style.display = 'none';
+        btnMusic.classList.remove('active');
     });
 
     function renderStats() {
@@ -1603,6 +1680,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // ─── escapeHTML importado de utils/dom.js ──────────────────
+
+    // ─── Offline detection ──────────────────────
+    if (!isOnline()) {
+        const dot = document.getElementById('backend-status');
+        if (dot) { dot.className = 'backend-status offline'; dot.title = 'Sin conexión a internet'; }
+    }
+    onOnline(async () => {
+        showToast('Conexión restablecida', 'success');
+        checkBackendStatus();
+        await processQueue(async (item) => {
+            if (item.action === 'add') {
+                await authFetch(`${API_URL}/tasks`, { method: 'POST', body: JSON.stringify({ text: item.payload.text }) });
+            }
+        });
+    });
+    onOffline(() => {
+        showToast('Sin conexión — los cambios se guardarán al reconectar', 'warning');
+    });
 
     // ─── Arrancar ───────────────────────────────
     initAuth();
